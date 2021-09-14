@@ -10,6 +10,7 @@ use std::io::Write;
 use symphonia::core::audio::SampleBuffer;
 use symphonia::core::codecs::DecoderOptions;
 use symphonia::core::conv::IntoSample;
+use symphonia::core::io::MediaSource;
 
 use async_trait::async_trait;
 use failure::Error;
@@ -25,7 +26,7 @@ mod player;
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let mut search_query = String::new();
-    println!("Enter Search Query");
+    println!("Enter Search Query: ");
     io::stdin()
         .read_line(&mut search_query)
         .expect("Cannot Read Input");
@@ -50,7 +51,7 @@ async fn main() -> Result<(), Error> {
         let downloader = DownloaderExample {};
 
         println!("Extracting Stream");
-        let mut stream_extractor = YTStreamExtractor::new("SAdQnnMI05U", downloader).await?;
+        let mut stream_extractor = YTStreamExtractor::new(&video_id, downloader).await?;
         let audio_streams = stream_extractor.get_audio_streams()?;
         let stream_info = audio_streams
             .iter()
@@ -59,22 +60,10 @@ async fn main() -> Result<(), Error> {
             .expect("No mpeg4 stream");
         let url = stream_info.url.clone().expect("No url in stream");
 
-        println!("Downloading stream");
-        let body = reqwest::get(url).await?.bytes().await?;
-        use bytes::{Buf, Bytes};
-        use std::io::Cursor;
-        let len = body.len();
-        println!("Decoding stream len {}", len);
-        let mut c = Cursor::new(Vec::new());
-        c.write_all(&body).expect("Cant write all");
-        c.seek(SeekFrom::Start(0)).expect("Cant seek to 0");
-        // let bf = BufReader::new(inner)
-        let mut out = Vec::new();
-        c.read_to_end(&mut out).expect("Cant read");
-        let f = std::fs::write("data.m4a", out).expect("Cant write");
-        c.seek(SeekFrom::Start(0)).expect("Cant seek to 0");
+        println!("Downloading stream url {}", url);
+        let response = reqwest::blocking::get(url).expect("Cant request url");
 
-        let decoded_data = decode_m4a::decode(c);
+        let decoded_data = decode_m4a::decode(StreamResponse { response });
         player::play(
             decoded_data,
             None,
@@ -85,6 +74,32 @@ async fn main() -> Result<(), Error> {
         .expect("Cant play");
     }
     Ok(())
+}
+
+pub struct StreamResponse {
+    response: reqwest::blocking::Response,
+}
+
+impl Read for StreamResponse {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.response.read(buf)
+    }
+}
+
+impl Seek for StreamResponse {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        unimplemented!()
+    }
+}
+
+impl MediaSource for StreamResponse {
+    fn is_seekable(&self) -> bool {
+        false
+    }
+
+    fn byte_len(&self) -> Option<u64> {
+        self.response.content_length()
+    }
 }
 
 struct DownloaderExample {}

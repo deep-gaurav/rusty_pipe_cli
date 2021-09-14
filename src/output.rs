@@ -55,18 +55,32 @@ mod cpal {
             let host = cpal::default_host();
 
             // Get the default audio output device.
-            let device = match host.default_output_device() {
-                Some(device) => device,
+            let devices = match host.output_devices() {
+                Ok(device) => device,
                 _ => {
                     error!("failed to get default audio output device");
                     return Err(AudioOutputError::OpenStreamError);
                 }
             };
 
-            let config = match device.default_output_config() {
-                Ok(config) => config,
-                Err(err) => {
-                    error!("failed to get default audio output device config: {}", err);
+            let (config, device) = {
+                let mut c = None;
+                let mut d = None;
+                for device in devices {
+                    match device.default_output_config() {
+                        Ok(config) => {
+                            c = Some(config);
+                            d = Some(device);
+                            break;
+                        }
+                        Err(err) => {
+                            error!("failed to get default audio output device config: {}", err);
+                        }
+                    };
+                }
+                if let Some(out) = c {
+                    (out, d.unwrap())
+                } else {
                     return Err(AudioOutputError::OpenStreamError);
                 }
             };

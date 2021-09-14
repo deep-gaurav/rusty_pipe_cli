@@ -8,9 +8,11 @@ use symphonia::core::audio::SampleBuffer;
 use symphonia::core::codecs::DecoderOptions;
 use symphonia::core::errors::Error;
 use symphonia::core::formats::{FormatOptions, FormatReader};
-use symphonia::core::io::MediaSourceStream;
+use symphonia::core::io::{MediaSource, MediaSourceStream};
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
+
+use crate::StreamResponse;
 
 // pub struct SympOut {
 //     pub data: Option<SampleBuffer<f32>>,
@@ -43,7 +45,7 @@ use symphonia::core::probe::Hint;
 //     }
 // }
 
-pub fn decode(data: Cursor<Vec<u8>>) -> Box<dyn FormatReader> {
+pub fn decode(data: StreamResponse) -> Box<dyn FormatReader> {
     // Get command line arguments.
 
     // Create a media source. Note that the MediaSource trait is automatically implemented for File,
