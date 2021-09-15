@@ -39,15 +39,42 @@ mod cpal {
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     use rb::*;
 
-    use log::error;
+    use log::{debug, error};
 
     pub struct CpalAudioOutput;
 
-    trait AudioOutputSample: cpal::Sample + ConvertibleSample + std::marker::Send + 'static {}
+    trait AudioOutputSample: cpal::Sample + ConvertibleSample + std::marker::Send + 'static {
+        fn to_f32(&self) -> f32;
+        fn from_f32(n: f32) -> Self;
+    }
 
-    impl AudioOutputSample for f32 {}
-    impl AudioOutputSample for i16 {}
-    impl AudioOutputSample for u16 {}
+    impl AudioOutputSample for f32 {
+        fn to_f32(&self) -> f32 {
+            *self
+        }
+
+        fn from_f32(n: f32) -> Self {
+            n
+        }
+    }
+    impl AudioOutputSample for i16 {
+        fn to_f32(&self) -> f32 {
+            (*self) as f32
+        }
+
+        fn from_f32(n: f32) -> Self {
+            n as i16
+        }
+    }
+    impl AudioOutputSample for u16 {
+        fn to_f32(&self) -> f32 {
+            (*self) as f32
+        }
+
+        fn from_f32(n: f32) -> Self {
+            n as u16
+        }
+    }
 
     impl CpalAudioOutput {
         pub fn try_open(spec: SignalSpec, duration: Duration) -> Result<Box<dyn AudioOutput>> {
@@ -63,38 +90,84 @@ mod cpal {
                 }
             };
 
+            let mut need_h_sam = false;
+            // log::info!("found devices {:#?}",devices);
+
             let (config, device) = {
                 let mut c = None;
                 let mut d = None;
+                let mut min_sample_rate = u32::MAX;
+                let mut max_sample_rate = 0;
                 for device in devices {
-                    match device.default_output_config() {
-                        Ok(config) => {
-                            c = Some(config);
-                            d = Some(device);
-                            break;
+                    match device.supported_output_configs() {
+                        Ok(mut config) => {
+                            if let Some(config) = config.next() {
+                                if spec.rate <= config.max_sample_rate().0
+                                    && spec.rate >= config.min_sample_rate().0
+                                {
+                                    c = Some(config.with_sample_rate(cpal::SampleRate(spec.rate)));
+                                    d = Some(device);
+                                    break;
+                                }
+                                if config.min_sample_rate().0 < min_sample_rate {
+                                    min_sample_rate = config.min_sample_rate().0;
+                                }
+                                if config.max_sample_rate().0 > max_sample_rate {
+                                    max_sample_rate = config.max_sample_rate().0;
+                                }
+                            }
                         }
                         Err(err) => {
                             error!("failed to get default audio output device config: {}", err);
+                            debug!(
+                                "Supported configs {:#?}",
+                                device.supported_output_configs().map(|c| c.count())
+                            )
                         }
                     };
+                }
+                if c.is_none() {
+                    if let Some(device) = host.default_output_device() {
+                        if let Ok(config) = device.default_output_config() {
+                            c = Some(config);
+                            d = Some(device);
+                            need_h_sam = true;
+                        }
+                    }
                 }
                 if let Some(out) = c {
                     (out, d.unwrap())
                 } else {
+                    log::error!("No device and config found");
+                    log::info!(
+                        "Min -> {} Max -> {} Spec {}",
+                        min_sample_rate,
+                        max_sample_rate,
+                        spec.rate
+                    );
                     return Err(AudioOutputError::OpenStreamError);
                 }
             };
 
+            log::debug!("Supported config {:#?}", config);
             // Select proper playback routine based on sample format.
+            let rate = if need_h_sam {
+                config.sample_rate().0
+            } else {
+                spec.rate
+            };
             match config.sample_format() {
                 cpal::SampleFormat::F32 => {
-                    CpalAudioOutputImpl::<f32>::try_open(spec, duration, &device)
+                    log::debug!("Open f32");
+                    CpalAudioOutputImpl::<f32>::try_open(spec, duration, &device, rate)
                 }
                 cpal::SampleFormat::I16 => {
-                    CpalAudioOutputImpl::<i16>::try_open(spec, duration, &device)
+                    log::debug!("Open i16");
+                    CpalAudioOutputImpl::<i16>::try_open(spec, duration, &device, rate)
                 }
                 cpal::SampleFormat::U16 => {
-                    CpalAudioOutputImpl::<u16>::try_open(spec, duration, &device)
+                    log::debug!("Open u16");
+                    CpalAudioOutputImpl::<u16>::try_open(spec, duration, &device, rate)
                 }
             }
         }
@@ -107,6 +180,9 @@ mod cpal {
         ring_buf_producer: rb::Producer<T>,
         sample_buf: SampleBuffer<T>,
         stream: cpal::Stream,
+        rate: u32,
+        original_rate: u32,
+        channels: usize,
     }
 
     impl<T: AudioOutputSample> CpalAudioOutputImpl<T> {
@@ -114,13 +190,15 @@ mod cpal {
             spec: SignalSpec,
             duration: Duration,
             device: &cpal::Device,
+            rate: u32,
         ) -> Result<Box<dyn AudioOutput>> {
             // Output audio stream config.
             let config = cpal::StreamConfig {
                 channels: spec.channels.count() as cpal::ChannelCount,
-                sample_rate: cpal::SampleRate(spec.rate),
+                sample_rate: cpal::SampleRate(rate),
                 buffer_size: cpal::BufferSize::Default,
             };
+            log::debug!("Opening config {:#?}", config);
 
             // Instantiate a ring buffer capable of buffering 8K (arbitrarily chosen) samples.
             let ring_buf = SpscRb::new(8 * 1024);
@@ -159,6 +237,9 @@ mod cpal {
                 ring_buf_producer,
                 sample_buf,
                 stream,
+                rate,
+                original_rate: spec.rate,
+                channels: spec.channels.count() ,
             }))
         }
     }
@@ -175,10 +256,35 @@ mod cpal {
             self.sample_buf.copy_interleaved_ref(decoded);
 
             let mut i = 0;
-
+            let converted_samples = {
+                if self.rate != self.original_rate  {
+                    let converter = samplerate::Samplerate::new(
+                        samplerate::ConverterType::SincBestQuality,
+                        self.original_rate,
+                        self.rate,
+                        self.channels,
+                    )
+                    .expect("Cant create converter");
+                    let new_sample = converter
+                        .process_last(
+                            &self
+                                .sample_buf
+                                .samples()
+                                .iter()
+                                .map(|f| AudioOutputSample::to_f32(f))
+                                .collect::<Vec<_>>(),
+                        )
+                        .expect("Cant convert");
+                    let new_sample = new_sample.iter().map(|f|T::from_f32(*f)).collect::<Vec<_>>();
+                    log::info!("Converted from {} -> {}, Rate {} -> {}", &self.sample_buf.samples().len(),new_sample.len(),self.original_rate,self.rate);
+                    new_sample
+                } else {
+                    (self.sample_buf.samples()).iter().map(|f|T::from_f32(AudioOutputSample::to_f32(f))).collect::<Vec<_>>()
+                }
+            };
             // Write out all samples in the sample buffer to the ring buffer.
-            while i < self.sample_buf.len() {
-                let writeable_samples = &self.sample_buf.samples()[i..];
+            while i < converted_samples.len() {
+                let writeable_samples = &converted_samples[i..];
 
                 // Write as many samples as possible to the ring buffer. This blocks until some
                 // samples are written or the consumer has been destroyed (None is returned).
