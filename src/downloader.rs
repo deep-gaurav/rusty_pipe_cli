@@ -35,6 +35,7 @@ impl DownloaderS {
             let tmpc = surf::client();
             let mut dt = vec![];
             let mut futs = vec![];
+            let mut complete_futs = vec![];
             let tasks: Vec<IncomingTask> = {
                 self.tasks_to_respond
                     .lock()
@@ -63,6 +64,11 @@ impl DownloaderS {
             for (mut dtask, task) in dt {
                 futs.push(dtask.download_task(task.clone()));
             }
+            if futs.is_empty() {
+                for task in self.download_tasks.iter() {
+                    complete_futs.push(task.clone().complete_tasks())
+                }
+            }
             let results = futures::future::join_all(futs).await;
             for res in results {
                 match res {
@@ -87,6 +93,23 @@ impl DownloaderS {
                     }
                     Err(err) => {
                         log::warn!("{:#?}", err);
+                    }
+                }
+            }
+
+            let complete_result = futures::future::join_all(complete_futs).await;
+            for res in complete_result {
+                match res {
+                    Ok(dtask) => {
+                        let dtask_pos = self
+                            .download_tasks
+                            .iter()
+                            .position(|d| d.url == dtask.url)
+                            .expect("download task not present");
+                        self.download_tasks[dtask_pos] = dtask;
+                    }
+                    Err(err) => {
+                        log::warn!("Error when completing {:#?}", err);
                     }
                 }
             }
@@ -129,7 +152,7 @@ impl DownloadProg {
     ) -> Result<Self, anyhow::Error> {
         let response = client
             .get(url)
-            .header("Range", format!("bytes={}", pos).as_str())
+            .header("Range", format!("bytes={}-", pos).as_str())
             .send()
             .await
             .map_err(|e| anyhow::anyhow!("{:#?}", e))?;
@@ -145,19 +168,38 @@ impl DownloadProg {
         let mut buff = vec![0; size];
         let resp = {
             let mut response = self.response.lock().expect("Cant lock response");
-            response.read(&mut buff[..]).await
+            if response.is_empty().unwrap_or(true) {
+                log::warn!("Body empty {:#?}", response.is_empty());
+                Err(anyhow::anyhow!("Ended"))
+            } else {
+                response
+                    .read(&mut buff[..])
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{:#?}", e))
+            }
         };
         // log::info!("Downloaded data {:#?}", buff);
-        if let Err(err) = resp {
-            log::warn!("Download err {:#?}", err);
-            return Err(anyhow::anyhow!("{:#?}", err));
+        match resp {
+            Ok(size) => {
+                log::info!("Downloaded {}", size);
+                if size == 0 {
+                    return Ok(vec![]);
+                }
+
+                if !buff.iter().any(|b| b != &0) {
+                    log::warn!("All 0s ");
+                    return Err(anyhow::anyhow!("All 0s downloaded"));
+                }
+
+                self.current_pos += size;
+                Ok(buff[..size].iter().cloned().collect::<Vec<_>>())
+            }
+            Err(err) => {
+                log::warn!("Download err {:#?}", err);
+                // return Err(anyhow::anyhow!("{:#?}", err));
+                return Ok(vec![]);
+            }
         }
-        if !buff.iter().any(|b| b != &0) {
-            log::warn!("All 0s ");
-            return Err(anyhow::anyhow!("All 0s downloaded"));
-        }
-        self.current_pos += buff.len();
-        Ok(buff)
     }
 }
 
@@ -171,6 +213,8 @@ impl DownloadTask {
         let length = response
             .len()
             .ok_or(anyhow::anyhow!("Content length not known"))?;
+        log::info!("Content length found {}", length);
+
         let buff = vec![None; length];
         Ok(Self {
             url,
@@ -181,6 +225,46 @@ impl DownloadTask {
         })
     }
 
+    async fn complete_tasks(mut self) -> Result<Self, anyhow::Error> {
+        if let Some(prog_down) = self.download_progs.first_mut() {
+            let pos = prog_down.current_pos;
+            let result = prog_down.read(2048).await;
+            match result {
+                Ok(data) => {
+                    log::info!("Downloaded len {}", data.len());
+                    let mut should_remove = false;
+                    for (i, data) in data.iter().enumerate() {
+                        if self.buff.len() <= i + pos {
+                            log::warn!("Adding {}bytes", i + pos + 1);
+                            self.buff
+                                .append(&mut vec![None; (i + pos + 1) - self.buff.len()]);
+                        }
+                        if self.buff[i + pos].is_some() {
+                            should_remove = true;
+                        }
+                        self.buff[i + pos] = Some(*data);
+                    }
+                    if data.len() == 0 {
+                        should_remove = true;
+                    }
+                    if should_remove {
+                        let task = self.download_progs.remove(0);
+                        log::info!("Removed download thread");
+                    }
+
+                    return Ok(self);
+                }
+                Err(err) => {
+                    log::warn!("Download failded {:#?}", err);
+                    return Ok(self);
+                }
+            }
+        } else {
+            log::debug!("Nothing to download ");
+            return Ok(self);
+        }
+    }
+
     async fn download_task(
         mut self,
         task: IncomingTask,
@@ -189,6 +273,9 @@ impl DownloadTask {
         if self.buff.len() < pos && self.buff[pos].is_some() {
             let mut return_vec = vec![];
             for i in self.buff[pos..].iter() {
+                if return_vec.len() >= task.buff {
+                    break;
+                }
                 if let Some(i) = i {
                     return_vec.push(*i);
                 } else {
@@ -205,7 +292,11 @@ impl DownloadTask {
                 .iter_mut()
                 .find(|p| p.current_pos == pos)
             {
-                log::info!("Downloading using thread, pos -> {}", down.current_pos);
+                log::info!(
+                    "Downloading using thread, pos -> {} requesting size {}",
+                    down.current_pos,
+                    task.buff
+                );
                 let downloader = down.read(task.buff).await;
                 log::info!(
                     "Downloadin complete using thread new pos {} ",
@@ -216,11 +307,13 @@ impl DownloadTask {
                         log::info!("Downloaded len {}", data.len());
                         for (i, data) in data.iter().enumerate() {
                             if self.buff.len() <= i + pos {
+                                log::warn!("Adding {}bytes", i + pos + 1);
                                 self.buff
                                     .append(&mut vec![None; (i + pos + 1) - self.buff.len()]);
                             }
                             self.buff[i + pos] = Some(*data);
                         }
+
                         return Ok((data, task, self));
                     }
                     Err(er) => {

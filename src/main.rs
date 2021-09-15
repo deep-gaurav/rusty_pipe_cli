@@ -12,6 +12,7 @@ use std::io::SeekFrom;
 use std::io::Write;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
+use surf::Response;
 use symphonia::core::audio::SampleBuffer;
 use symphonia::core::codecs::DecoderOptions;
 use symphonia::core::conv::IntoSample;
@@ -91,12 +92,14 @@ async fn async_main(
         let response = surf::get(&url).send().await.unwrap();
         let length = response.len();
         println!("Downloading");
+        // let mut d = vec![];
         // StreamResponse {
-        //     url,
+        //     url: url.clone(),
         //     current_position: 0,
         //     down_rcv,
         //     down_sender,
         //     total_length: length,
+        //     response: surf::get(&url).send().await.expect("response fail"),
         // }
         // .read_to_end(&mut d)
         // .expect("Cant read to end");
@@ -140,7 +143,7 @@ impl Read for StreamResponse {
         self.down_sender
             .send(task.clone())
             .expect("Cant send to downloader");
-        log::info!("Downloaded with downloader");
+        log::info!("Download with downloader size {}", buf.len());
         let mut data = loop {
             let reply = self.down_rcv.recv().expect("Cant receive from downloader");
             if reply.task == task {
@@ -149,10 +152,12 @@ impl Read for StreamResponse {
         };
         log::info!("downloaded data len {}", data.data.len());
         self.current_position += data.data.len();
-        let mut c = Cursor::new(data.data);
-        let n = c.write(buf)?;
+        if data.data.len() == 0 {
+            return Ok(0);
+        }
+        buf[..data.data.len()].copy_from_slice(&data.data[..]);
         // async_std::task::block_on(async { self.response.read(buf).await })
-        Ok(n)
+        Ok(data.data.len())
     }
 }
 
