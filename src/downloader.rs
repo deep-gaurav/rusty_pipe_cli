@@ -181,7 +181,7 @@ impl DownloadProg {
         // log::info!("Downloaded data {:#?}", buff);
         match resp {
             Ok(size) => {
-                log::info!("Downloaded {}", size);
+                // log::info!("Downloaded {}", size);
                 if size == 0 {
                     return Ok(vec![]);
                 }
@@ -231,7 +231,7 @@ impl DownloadTask {
             let result = prog_down.read(2048).await;
             match result {
                 Ok(data) => {
-                    log::info!("Downloaded len {}", data.len());
+                    // log::info!("Downloaded len {}", data.len());
                     let mut should_remove = false;
                     for (i, data) in data.iter().enumerate() {
                         if self.buff.len() <= i + pos {
@@ -260,7 +260,7 @@ impl DownloadTask {
                 }
             }
         } else {
-            log::debug!("Nothing to download ");
+            // log::debug!("Nothing to download ");
             return Ok(self);
         }
     }
@@ -270,7 +270,7 @@ impl DownloadTask {
         task: IncomingTask,
     ) -> Result<(Vec<u8>, IncomingTask, Self), anyhow::Error> {
         let pos = task.pos;
-        if self.buff.len() < pos && self.buff[pos].is_some() {
+        if self.buff.len() > pos && self.buff[pos].is_some() {
             let mut return_vec = vec![];
             for i in self.buff[pos..].iter() {
                 if return_vec.len() >= task.buff {
@@ -282,9 +282,17 @@ impl DownloadTask {
                     break;
                 }
             }
-            log::info!("returning cache len {}", return_vec.len());
+            // log::info!("returning cache len {}", return_vec.len());
             return Ok((return_vec, task, self));
         }
+
+        log::info!(
+            "All thread pos {:#?}",
+            self.download_progs
+                .iter()
+                .map(|t| t.current_pos)
+                .collect::<Vec<_>>()
+        );
         // todo!()
         loop {
             if let Some(down) = self
@@ -292,11 +300,16 @@ impl DownloadTask {
                 .iter_mut()
                 .find(|p| p.current_pos == pos)
             {
-                log::info!(
-                    "Downloading using thread, pos -> {} requesting size {}",
-                    down.current_pos,
-                    task.buff
+                log::debug!(
+                    "Found old thread reusing requested {} threadpos {}",
+                    pos,
+                    down.current_pos
                 );
+                // log::info!(
+                //     "Downloading using thread, pos -> {} requesting size {}",
+                //     down.current_pos,
+                //     task.buff
+                // );
                 let downloader = down.read(task.buff).await;
                 log::info!(
                     "Downloadin complete using thread new pos {} ",
@@ -304,7 +317,7 @@ impl DownloadTask {
                 );
                 match downloader {
                     Ok(data) => {
-                        log::info!("Downloaded len {}", data.len());
+                        // log::info!("Downloaded len {}", data.len());
                         for (i, data) in data.iter().enumerate() {
                             if self.buff.len() <= i + pos {
                                 log::warn!("Adding {}bytes", i + pos + 1);

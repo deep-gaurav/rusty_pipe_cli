@@ -36,4 +36,4 @@ anyhow = "1.0.44"
 futures = "0.3"
 
 [profile.release]
-lto = true
+# lto = true

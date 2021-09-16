@@ -369,6 +369,41 @@ fn play_track(
                 // Write the decoded audio samples to the audio output if the presentation timestamp
                 // for the packet is >= the seeked position (0 if not seeking).
                 if packet.pts() >= play_opts.seek_ts {
+                    // if let Some(tb) = tb {
+                    //     let t = tb.calc_time(packet.pts()).seconds;
+                    //     // if t > 50 {
+                    //     //     reader
+                    //     //         .seek(
+                    //     //             SeekMode::Accurate,
+                    //     //             SeekTo::Time {
+                    //     //                 time: Time::from_ss(10, 0).unwrap(),
+                    //     //                 track_id: None,
+                    //     //             },
+                    //     //         )
+                    //     //         .expect("Cant Seek");
+                    //     // } else if t > 30 && t < 35 {
+                    //     //     reader
+                    //     //         .seek(
+                    //     //             SeekMode::Coarse,
+                    //     //             SeekTo::Time {
+                    //     //                 time: Time::from_ss(40, 0).unwrap(),
+                    //     //                 track_id: None,
+                    //     //             },
+                    //     //         )
+                    //     //         .expect("Cant seek");
+                    //     // } else
+                    //     if t > 1 && t < 50 {
+                    //         reader
+                    //             .seek(
+                    //                 SeekMode::Accurate,
+                    //                 SeekTo::Time {
+                    //                     time: Time::from_mmss(2, 30, 0).unwrap(),
+                    //                     track_id: None,
+                    //                 },
+                    //             )
+                    //             .expect("Can seek");
+                    //     }
+                    // }
                     if !no_progress {
                         print_progress(packet.pts(), dur, tb);
                     }

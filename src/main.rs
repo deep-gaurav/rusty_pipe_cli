@@ -27,6 +27,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use urlencoding::encode;
 
+use crate::decode_m4a::decode_file;
 use crate::downloader::DownloaderS;
 
 mod decode_m4a;
@@ -112,6 +113,8 @@ async fn async_main(
             down_sender,
             total_length: length,
         });
+        // let decoded_data =
+        //     decode_file(std::fs::File::open("videoplayback.m4a").expect("Cant open file"));
         player::play(
             decoded_data,
             None,
@@ -143,14 +146,14 @@ impl Read for StreamResponse {
         self.down_sender
             .send(task.clone())
             .expect("Cant send to downloader");
-        log::info!("Download with downloader size {}", buf.len());
+        // log::info!("Download with downloader size {}", buf.len());
         let mut data = loop {
             let reply = self.down_rcv.recv().expect("Cant receive from downloader");
             if reply.task == task {
                 break reply;
             }
         };
-        log::info!("downloaded data len {}", data.data.len());
+        // log::info!("downloaded data len {}", data.data.len());
         self.current_position += data.data.len();
         if data.data.len() == 0 {
             return Ok(0);
@@ -163,13 +166,37 @@ impl Read for StreamResponse {
 
 impl Seek for StreamResponse {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        unimplemented!()
+        log::info!("Seek requested {:#?}", pos);
+        log::info!("Current pos {}", self.current_position);
+        let new_pos = match pos {
+            SeekFrom::Start(pos) => {
+                self.current_position = pos as usize;
+                Ok(self.current_position as u64)
+            }
+            SeekFrom::End(pos) => {
+                if let Some(total_length) = self.total_length {
+                    self.current_position = total_length - pos as usize;
+                }
+                Ok(self.current_position as u64)
+            }
+            SeekFrom::Current(pos) => {
+                let new_pos = self.current_position as i64 + pos;
+                if new_pos > 0 {
+                    self.current_position = new_pos as usize;
+                } else {
+                    self.current_position = 0;
+                }
+                Ok(self.current_position as u64)
+            }
+        };
+        log::info!("new pos {:#?}", new_pos);
+        new_pos
     }
 }
 
 impl MediaSource for StreamResponse {
     fn is_seekable(&self) -> bool {
-        false
+        true
     }
 
     fn byte_len(&self) -> Option<u64> {
