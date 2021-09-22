@@ -85,9 +85,11 @@ pub fn decode(data: StreamResponse) -> Box<dyn FormatReader> {
     let decoder_opts: DecoderOptions = Default::default();
 
     // Probe the media source stream for a format.
+    log::info!("Probing stream");
     let probed = symphonia::default::get_probe()
         .format(&hint, mss, &format_opts, &metadata_opts)
         .unwrap();
+    log::info!("Format probed");
 
     // Get the format reader yielded by the probe operation.
     let mut format = probed.format;

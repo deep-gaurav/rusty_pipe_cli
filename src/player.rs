@@ -202,9 +202,9 @@ fn decode_only(mut reader: Box<dyn FormatReader>, decode_opts: &DecoderOptions) 
 }
 
 #[derive(Copy, Clone)]
-struct PlayTrackOptions {
-    track_id: u32,
-    seek_ts: u64,
+pub struct PlayTrackOptions {
+    pub track_id: u32,
+    pub seek_ts: u64,
 }
 
 pub fn play(
@@ -297,7 +297,7 @@ pub fn play(
     result
 }
 
-fn play_track(
+pub fn play_track(
     reader: &mut Box<dyn FormatReader>,
     audio_output: &mut Option<Box<dyn super::output::AudioOutput>>,
     play_opts: PlayTrackOptions,
@@ -467,7 +467,7 @@ fn print_format(path: &str, probed: &mut ProbeResult) {
     println!();
 }
 
-fn print_update(rev: &MetadataRevision) {
+pub fn print_update(rev: &MetadataRevision) {
     print_tags(rev.tags());
     print_visuals(rev.visuals());
     println!(":");
@@ -707,7 +707,7 @@ fn fmt_time(ts: u64, tb: TimeBase) -> String {
     format!("{}:{:0>2}:{:0>6.3}", hours, mins, secs)
 }
 
-fn print_progress(ts: u64, dur: Option<u64>, tb: Option<TimeBase>) {
+pub fn print_progress(ts: u64, dur: Option<u64>, tb: Option<TimeBase>) {
     // Get a string slice containing a progress bar.
     fn progress_bar(ts: u64, dur: u64) -> &'static str {
         const NUM_STEPS: usize = 60;

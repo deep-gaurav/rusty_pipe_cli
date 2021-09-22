@@ -3,16 +3,17 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::sync::Mutex;
 use std::sync::{Arc, RwLock};
+
 pub struct DownloaderS {
     tasks_to_respond: Arc<Mutex<Vec<IncomingTask>>>,
-    responder: std::sync::mpsc::Sender<Reply>,
+    responder: crossbeam_channel::Sender<Reply>,
     download_tasks: Vec<DownloadTask>,
 }
 
 impl DownloaderS {
     pub fn new(
-        task_receiver: std::sync::mpsc::Receiver<IncomingTask>,
-        responder: std::sync::mpsc::Sender<Reply>,
+        task_receiver: crossbeam_channel::Receiver<IncomingTask>,
+        responder: crossbeam_channel::Sender<Reply>,
     ) -> Self {
         let incoming_tasks = Arc::new(Mutex::new(vec![]));
         let thread_in_task = incoming_tasks.clone();
@@ -31,8 +32,9 @@ impl DownloaderS {
     }
 
     pub async fn run(&mut self) {
+        log::info!("Downloader started");
+
         loop {
-            let tmpc = surf::client();
             let mut dt = vec![];
             let mut futs = vec![];
             let mut complete_futs = vec![];
@@ -64,6 +66,8 @@ impl DownloaderS {
             for (mut dtask, task) in dt {
                 futs.push(dtask.download_task(task.clone()));
             }
+
+            // Preload
             if futs.is_empty() {
                 for task in self.download_tasks.iter() {
                     complete_futs.push(task.clone().complete_tasks())
@@ -113,6 +117,7 @@ impl DownloaderS {
                     }
                 }
             }
+            async_std::task::sleep(std::time::Duration::from_millis(50)).await;
         }
     }
 }
@@ -225,6 +230,10 @@ impl DownloadTask {
         })
     }
 
+    fn is_complete(&self) -> bool {
+        self.buff.iter().all(|f| f.is_some())
+    }
+
     async fn complete_tasks(mut self) -> Result<Self, anyhow::Error> {
         if let Some(prog_down) = self.download_progs.first_mut() {
             let pos = prog_down.current_pos;
@@ -249,7 +258,7 @@ impl DownloadTask {
                     }
                     if should_remove {
                         let task = self.download_progs.remove(0);
-                        log::info!("Removed download thread");
+                        log::debug!("Removed download thread");
                     }
 
                     return Ok(self);
@@ -286,13 +295,13 @@ impl DownloadTask {
             return Ok((return_vec, task, self));
         }
 
-        log::info!(
-            "All thread pos {:#?}",
-            self.download_progs
-                .iter()
-                .map(|t| t.current_pos)
-                .collect::<Vec<_>>()
-        );
+        // log::info!(
+        //     "All thread pos {:#?}",
+        //     self.download_progs
+        //         .iter()
+        //         .map(|t| t.current_pos)
+        //         .collect::<Vec<_>>()
+        // );
         // todo!()
         loop {
             if let Some(down) = self
@@ -311,7 +320,7 @@ impl DownloadTask {
                 //     task.buff
                 // );
                 let downloader = down.read(task.buff).await;
-                log::info!(
+                log::debug!(
                     "Downloadin complete using thread new pos {} ",
                     down.current_pos
                 );
@@ -327,6 +336,9 @@ impl DownloadTask {
                             self.buff[i + pos] = Some(*data);
                         }
 
+                        if self.is_complete() {
+                            log::info!("Download complete");
+                        }
                         return Ok((data, task, self));
                     }
                     Err(er) => {
@@ -334,12 +346,12 @@ impl DownloadTask {
                     }
                 }
             } else {
-                log::info!("Create new download thread");
+                log::debug!("Create new download thread");
                 let down_task =
                     DownloadProg::new_download_at(&self.url, pos, self.client.clone()).await;
                 match down_task {
                     Ok(down_task) => {
-                        log::info!("New thread created");
+                        log::debug!("New thread created");
                         self.download_progs.push(down_task);
                     }
                     Err(err) => {
