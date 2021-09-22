@@ -239,7 +239,7 @@ mod cpal {
                 stream,
                 rate,
                 original_rate: spec.rate,
-                channels: spec.channels.count() ,
+                channels: spec.channels.count(),
             }))
         }
     }
@@ -257,7 +257,7 @@ mod cpal {
 
             let mut i = 0;
             let converted_samples = {
-                if self.rate != self.original_rate  {
+                if self.rate != self.original_rate {
                     let converter = samplerate::Samplerate::new(
                         samplerate::ConverterType::SincBestQuality,
                         self.original_rate,
@@ -275,11 +275,23 @@ mod cpal {
                                 .collect::<Vec<_>>(),
                         )
                         .expect("Cant convert");
-                    let new_sample = new_sample.iter().map(|f|T::from_f32(*f)).collect::<Vec<_>>();
-                    log::info!("Converted from {} -> {}, Rate {} -> {}", &self.sample_buf.samples().len(),new_sample.len(),self.original_rate,self.rate);
+                    let new_sample = new_sample
+                        .iter()
+                        .map(|f| T::from_f32(*f))
+                        .collect::<Vec<_>>();
+                    log::info!(
+                        "Converted from {} -> {}, Rate {} -> {}",
+                        &self.sample_buf.samples().len(),
+                        new_sample.len(),
+                        self.original_rate,
+                        self.rate
+                    );
                     new_sample
                 } else {
-                    (self.sample_buf.samples()).iter().map(|f|T::from_f32(AudioOutputSample::to_f32(f))).collect::<Vec<_>>()
+                    (self.sample_buf.samples())
+                        .iter()
+                        .map(|f| T::from_f32(AudioOutputSample::to_f32(f)))
+                        .collect::<Vec<_>>()
                 }
             };
             // Write out all samples in the sample buffer to the ring buffer.

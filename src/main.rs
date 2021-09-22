@@ -47,16 +47,17 @@ fn main() -> Result<(), Error> {
         let (tx1, rx1) = futures::channel::mpsc::channel(2);
         let (tx2, rx2) = futures::channel::mpsc::channel(2);
 
-        let server_fut = server::run_server(
-            rx1,
-            tx2,
-            std::env::var("PORT")
-                .unwrap_or("3337".to_string())
-                .parse()
-                .unwrap_or(3337),
-        );
+        // let server_fut = server::run_server(
+        //     rx1,
+        //     tx2,
+        //     std::env::var("PORT")
+        //         .unwrap_or("3337".to_string())
+        //         .parse()
+        //         .unwrap_or(3337),
+        // );
+        let cli_fut = cli_ui::run_tui_pipe(rx1, tx2);
         let player_fut = r_player::run_audio_player(rx2, tx1);
-        futures::join!(server_fut, player_fut);
+        futures::join!(cli_fut, player_fut);
     });
 
     Ok(())
