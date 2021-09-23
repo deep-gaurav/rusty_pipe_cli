@@ -42,7 +42,7 @@ jobs:
           path: target/release
           key: ${{ runner.os }}-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-stable-debug-target-
+            ${{ runner.os }}-stable-release-target-
       - name: Build project
         run: cargo build --release --locked
 #       - name: Bump version and push tag/create release point
