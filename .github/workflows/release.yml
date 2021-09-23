@@ -59,8 +59,8 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.vars.outputs.tag }}
         with:
-          repo_token: ${{ steps.vars.outputs.tag }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/release/rusty_pipe_cli
           asset_name: rusty_pipe_mac
-          tag: ${{ steps.bump_version.outputs.new_tag }}
+          tag: ${{ steps.vars.outputs.tag  }}
           overwrite: true
