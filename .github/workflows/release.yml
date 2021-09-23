@@ -9,8 +9,8 @@ on:
 #       - master
 
 jobs:
-  release:
-    name: release ${{ matrix.target }}
+  mac_x86_64:
+    name: release-mac_x86_64
     runs-on:  macos-latest
     steps:
       - name: Checkout code
@@ -19,48 +19,171 @@ jobs:
         uses: actions/cache@v1
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-stable-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-release-mac_x86_64-stable-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-stable-cargo-registry-
+            ${{ runner.os }}-release-mac_x86_64-stable-cargo-registry-
       - name: Cache Cargo index
         uses: actions/cache@v1
         with:
           path: ~/.cargo/git
-          key: ${{ runner.os }}-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-release-mac_x86_64-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-stable-cargo-index-
       - name: Cache Cargo build debug
         uses: actions/cache@v1
         with:
           path: target/debug
-          key: ${{ runner.os }}-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-release-mac_x86_64-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-stable-debug-target-
       - name: Cache Cargo build release
         uses: actions/cache@v1
         with:
           path: target/release
-          key: ${{ runner.os }}-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-release-mac_x86_64-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-stable-release-target-
       - name: Build project
         run: cargo build --release --locked
-#       - name: Bump version and push tag/create release point
-#         uses: anothrNick/github-tag-action@1.17.2
-#         env:
-#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#           WITH_V: true
-#         id: bump_version
-      - name: Set output
-        id: vars
-        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v1-release
-        env:
-          RELEASE_VERSION: ${{ steps.vars.outputs.tag }}
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/release/rusty_pipe_cli
           asset_name: rusty_pipe_mac
+          tag: ${{ steps.vars.outputs.tag  }}
+          overwrite: true
+  linux_x86_64:
+    name: release-linux_x86_64
+    runs-on:  ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Cache Cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-release-ubuntu_x86_64-stable-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-release-ubuntu_x86_64-stable-cargo-registry-
+      - name: Cache Cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-release-ubuntu_x86_64-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-cargo-index-
+      - name: Cache Cargo build debug
+        uses: actions/cache@v1
+        with:
+          path: target/debug
+          key: ${{ runner.os }}-release-ubuntu_x86_64-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-debug-target-
+      - name: Cache Cargo build release
+        uses: actions/cache@v1
+        with:
+          path: target/release
+          key: ${{ runner.os }}-release-ubuntu_x86_64-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-release-target-
+      - name: Build project
+        run: cargo build --release --locked
+      - name: Upload binary to release
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/release/rusty_pipe_cli
+          asset_name: rusty_pipe_linux.x86_64
+          tag: ${{ steps.vars.outputs.tag  }}
+          overwrite: true
+  windowx_86_64:
+    name: release-windowx_86_64
+    runs-on:  windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Cache Cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-release-windowx_86_64-stable-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-release-windowx_86_64-stable-cargo-registry-
+      - name: Cache Cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-release-windowx_86_64-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-cargo-index-
+      - name: Cache Cargo build debug
+        uses: actions/cache@v1
+        with:
+          path: target/debug
+          key: ${{ runner.os }}-release-windowx_86_64-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-debug-target-
+      - name: Cache Cargo build release
+        uses: actions/cache@v1
+        with:
+          path: target/release
+          key: ${{ runner.os }}-release-windowx_86_64-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-release-target-
+      - name: Build project
+        run: cargo build --release --locked
+      - name: Upload binary to release
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/release/rusty_pipe_cli.exe
+          asset_name: rusty_pipe_windows_x86_64.exe
+          tag: ${{ steps.vars.outputs.tag  }}
+          overwrite: true
+  mac_aarch64:
+    name: release-macos_aarch64
+    runs-on:  macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install aarach target
+        run: rustup target install aarch64-apple-darwin
+      - name: Cache Cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-release-macos_aarch64-stable-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-release-macos_aarch64-stable-cargo-registry-
+      - name: Cache Cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-release-macos_aarch64-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-cargo-index-
+      - name: Cache Cargo build debug
+        uses: actions/cache@v1
+        with:
+          path: target/aarch64-apple-darwin/debug
+          key: ${{ runner.os }}-release-macos_aarch64-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-debug-target-
+      - name: Cache Cargo build release
+        uses: actions/cache@v1
+        with:
+          path: target/aarch64-apple-darwin/release
+          key: ${{ runner.os }}-release-macos_aarch64-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-release-target-
+      - name: Build project
+        run: cargo build --release --locked --target aarch64-apple-darwin
+      - name: Upload binary to release
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/aarch64-apple-darwin/release/rusty_pipe_cli
+          asset_name: rusty_pipe_macos_aarach64
           tag: ${{ steps.vars.outputs.tag  }}
           overwrite: true
