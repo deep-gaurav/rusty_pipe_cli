@@ -21,7 +21,7 @@ use tui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
-    widgets::{Block, Borders, Gauge, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Gauge, LineGauge, List, ListItem, Paragraph},
     Terminal,
 };
 mod util;
@@ -66,7 +66,10 @@ pub async fn run_tui_pipe(
     mut msg_sender: Sender<ToPlayerMessages>,
 ) {
     let receiver_msg_stream = msg_receiver.map(|e| IMsg::PlayerData(e));
-    let stdout = io::stdout();
+    let mut stdout = io::stdout();
+
+    crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)
+        .expect("Cant enter alternate screen");
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).expect("Cant create terminal");
 
@@ -113,7 +116,7 @@ pub async fn run_tui_pipe(
                             Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)),
                             Span::raw(" to stop editing, "),
                             Span::styled("Enter", Style::default().add_modifier(Modifier::BOLD)),
-                            Span::raw(" to record the message"),
+                            Span::raw(" to search"),
                         ],
                         Style::default(),
                     ),
@@ -128,7 +131,7 @@ pub async fn run_tui_pipe(
                         InputMode::Normal => Style::default(),
                         InputMode::Editing => Style::default().fg(Color::Yellow),
                     })
-                    .block(Block::default().borders(Borders::ALL).title("Input"));
+                    .block(Block::default().borders(Borders::ALL).title("Search"));
                 f.render_widget(input, chunks[1]);
                 match app.input_mode {
                     InputMode::Normal =>
@@ -174,9 +177,17 @@ pub async fn run_tui_pipe(
                     })
                     .collect();
                 let messages = List::new(messages)
-                    .block(Block::default().borders(Borders::ALL).title("Messages"));
+                    .block(Block::default().borders(Borders::ALL).title("Results"));
                 f.render_widget(messages, chunks[2]);
 
+                let player_row = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([
+                        Constraint::Length(15),
+                        Constraint::Min(1),
+                        Constraint::Length(15),
+                    ])
+                    .split(chunks[3]);
                 let progress = Gauge::default()
                     .block(Block::default().borders(Borders::empty()))
                     .gauge_style(Style::default().fg(Color::White).bg(Color::Black))
@@ -191,7 +202,45 @@ pub async fn run_tui_pipe(
                             0
                         }
                     });
-                f.render_widget(progress, chunks[3]);
+                let left_prog = if let Some(pd) = &app.player_status {
+                    if let Some((cur, dur)) = pd.current_status.zip(pd.total_time) {
+                        let secs = cur % 60;
+                        let mins = cur / 60;
+                        let hours = cur / (60 * 60);
+                        format!(
+                            "{} {}:{:0>2}:{:0>2}",
+                            if pd.playing { "⏵" } else { "⏸︎" },
+                            hours,
+                            mins,
+                            secs
+                        )
+                    } else {
+                        format!("")
+                    }
+                } else {
+                    format!("Not Playing")
+                };
+                let right_prog = if let Some(pd) = &app.player_status {
+                    if let Some((cur, dur)) = pd.current_status.zip(pd.total_time) {
+                        let secs = dur % 60;
+                        let mins = dur / 60;
+                        let hours = dur / (60 * 60);
+                        format!("{}:{:0>2}:{:0>2}", hours, mins, secs)
+                    } else {
+                        format!("")
+                    }
+                } else {
+                    format!("")
+                };
+                let progress_text_left =
+                    Paragraph::new(vec![Spans::from(vec![Span::raw(&left_prog)])]);
+                let progress_text_right =
+                    Paragraph::new(vec![Spans::from(vec![Span::raw(&right_prog)])])
+                        .alignment(tui::layout::Alignment::Right);
+
+                f.render_widget(progress_text_left, player_row[0]);
+                f.render_widget(progress, player_row[1]);
+                f.render_widget(progress_text_right, player_row[2]);
             })
             .expect("Cant render");
 
@@ -222,6 +271,8 @@ pub async fn run_tui_pipe(
                                         } else {
                                             msg_sender.send(ToPlayerMessages::Resume).await;
                                         }
+                                    } else {
+                                        msg_sender.send(ToPlayerMessages::Resume).await;
                                     }
                                 }
                                 KeyCode::Enter => {
@@ -334,6 +385,7 @@ pub async fn run_tui_pipe(
     crossterm::terminal::disable_raw_mode();
 
     terminal.clear();
+    crossterm::execute!(io::stdout(), crossterm::terminal::EnterAlternateScreen);
 }
 
 pub async fn play_video(id: &str) -> Result<(String, Option<usize>), anyhow::Error> {

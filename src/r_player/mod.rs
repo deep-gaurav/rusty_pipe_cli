@@ -166,11 +166,48 @@ async fn play_audio(
                                     }
                                 },
                             });
+                            // log::info!("playing frame ended");
+
                             if last_sent != Some(to_send.clone()) {
                                 let err = msg_sender.send(to_send.clone()).await;
                                 last_sent = Some(to_send);
                             }
-                            // log::info!("playing frame ended");
+                        } else {
+                            let to_send = PlayerMessage::Status(PlayerStatus {
+                                playing: false,
+                                current_status: {
+                                    if let Some(tb) = playing_data.tb {
+                                        if let Some(packet) = &playing_data.last_packet {
+                                            let t = tb.calc_time(packet.pts()).seconds;
+                                            Some(t)
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                },
+                                total_time: {
+                                    if let Some(tb) = playing_data.tb {
+                                        if let Some(packet) = &playing_data.last_packet {
+                                            if let Some(dur) = playing_data.dur {
+                                                let d = tb.calc_time(dur);
+                                                Some(d.seconds)
+                                            } else {
+                                                None
+                                            }
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                },
+                            });
+                            if last_sent != Some(to_send.clone()) {
+                                let err = msg_sender.send(to_send.clone()).await;
+                                last_sent = Some(to_send);
+                            }
                         }
                     }
                     match &playing_data {
