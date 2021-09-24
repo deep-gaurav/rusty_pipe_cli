@@ -45,6 +45,9 @@ jobs:
             ${{ runner.os }}-stable-release-target-
       - name: Build project
         run: cargo build --release --locked
+      - name: Set output
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v1-release
         with:
@@ -89,6 +92,9 @@ jobs:
             ${{ runner.os }}-stable-release-target-
       - name: Build project
         run: cargo build --release --locked
+      - name: Set output
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v1-release
         with:
@@ -133,6 +139,9 @@ jobs:
             ${{ runner.os }}-stable-release-target-
       - name: Build project
         run: cargo build --release --locked
+      - name: Set output
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v1-release
         with:
@@ -179,6 +188,9 @@ jobs:
             ${{ runner.os }}-stable-release-target-
       - name: Build project
         run: cargo build --release --locked --target aarch64-apple-darwin
+      - name: Set output
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v1-release
         with:
