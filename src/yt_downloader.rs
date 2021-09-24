@@ -53,14 +53,12 @@ impl Downloader for YTDownloader {
     }
 
     fn eval_js(script: &str) -> Result<String, String> {
-        use quick_js::{Context, JsValue};
-        let context = Context::new().expect("Cant create js context");
-        // println!("decryption code \n{}",decryption_code);
-        // println!("signature : {}",encrypted_sig);
-        // println!("jscode \n{}", script);
-        let res = context.eval(script).unwrap_or(quick_js::JsValue::Null);
-        // println!("js result : {:?}", result);
-        let result = res.into_string().unwrap_or("".to_string());
+        let mut context = boa::Context::default();
+        let res = context.eval(script).expect("JS Failed");
+        let result = res
+            .as_string()
+            .ok_or("Output not string".to_string())?
+            .to_string();
         // print!("JS result: {}", result);
         Ok(result)
     }
