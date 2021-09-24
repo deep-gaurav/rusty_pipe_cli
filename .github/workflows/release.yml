@@ -62,6 +62,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Install alsa
+        run: sudo apt-get install libasound2-dev
       - name: Cache Cargo registry
         uses: actions/cache@v1
         with:
@@ -105,10 +107,14 @@ jobs:
           overwrite: true
   windowx_86_64:
     name: release-windowx_86_64
-    runs-on:  windows-latest
+    runs-on:  ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Install windows target
+        run: rustup target add x86_64-pc-windows-gnu
+      - name: Install windows toolchain
+        run: rustup toolchain install stable-x86_64-pc-windows-gnu
       - name: Cache Cargo registry
         uses: actions/cache@v1
         with:
@@ -126,19 +132,19 @@ jobs:
       - name: Cache Cargo build debug
         uses: actions/cache@v1
         with:
-          path: target/debug
+          path: target/x86_64-pc-windows-gnu/debug
           key: ${{ runner.os }}-release-windowx_86_64-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-stable-debug-target-
       - name: Cache Cargo build release
         uses: actions/cache@v1
         with:
-          path: target/release
+          path: target/x86_64-pc-windows-gnu/release
           key: ${{ runner.os }}-release-windowx_86_64-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-stable-release-target-
       - name: Build project
-        run: cargo build --release --locked
+        run: cargo build --target x86_64-pc-windows-gnu --release --locked
       - name: Set output
         id: vars
         run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
@@ -146,13 +152,13 @@ jobs:
         uses: svenstaro/upload-release-action@v1-release
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/release/rusty_pipe_cli.exe
+          file: target/x86_64-pc-windows-gnu/release/rusty_pipe_cli.exe
           asset_name: rusty_pipe_windows_x86_64.exe
           tag: ${{ steps.vars.outputs.tag  }}
           overwrite: true
   mac_aarch64:
     name: release-macos_aarch64
-    runs-on:  macos-latest
+    runs-on:  macos-11
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -187,7 +193,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-stable-release-target-
       - name: Build project
-        run: cargo build --release --locked --target aarch64-apple-darwin
+        run: SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path) MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version) cargo build --release --locked --target aarch64-apple-darwin
       - name: Set output
         id: vars
         run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
