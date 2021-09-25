@@ -2429,6 +2429,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "portpicker"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
+dependencies = [
+ "rand 0.8.4",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2692,6 +2701,7 @@ dependencies = [
  "futures",
  "lazy_static",
  "log",
+ "portpicker",
  "pretty_env_logger",
  "rand 0.8.4",
  "rb",

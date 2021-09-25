@@ -44,6 +44,7 @@ unicode-width = "0.1.9"
 crossterm = { version = "0.21", features = ["event-stream"] }
 rand = "0.8"
 Boa = { git = "https://github.com/boa-dev/boa.git" }
+portpicker = "0.1.1"
 
 [profile.release]
 lto = true
