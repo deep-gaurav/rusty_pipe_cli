@@ -134,7 +134,7 @@ jobs:
           asset_name: rusty_pipe_windows_x86_64.exe
           tag: ${{ steps.vars.outputs.tag  }}
           overwrite: true
-  windowx_86_64:
+  windowx_86_64-msvc:
     name: release-windowx_86_64-windows
     runs-on:  windows-latest
     steps:
