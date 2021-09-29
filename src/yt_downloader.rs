@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::format};
 
 use async_trait::async_trait;
 use rusty_pipe::{downloader_trait::Downloader, youtube_extractor::error::ParsingError};
@@ -54,7 +54,7 @@ impl Downloader for YTDownloader {
 
     fn eval_js(script: &str) -> Result<String, String> {
         let mut context = boa::Context::default();
-        let res = context.eval(script).expect("JS Failed");
+        let res = context.eval(script).map_err(|er|format!("{:#?}",er))?;
         let result = res
             .as_string()
             .ok_or("Output not string".to_string())?

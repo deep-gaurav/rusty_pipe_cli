@@ -35,22 +35,31 @@ use rusty_pipe_cli::yt_downloader::YTDownloader;
 fn main() -> Result<(), Error> {
     pretty_env_logger::init();
 
-    async_std::task::block_on(async {
-        let (tx1, rx1) = futures::channel::mpsc::channel(2);
-        let (tx2, rx2) = futures::channel::mpsc::channel(2);
+    let mut args = std::env::args();
+    if args.any(|arg|arg.contains("server")){
+        let port = rusty_pipe_cli::get_unused_port().expect("Not available port");
+        println!("Server started on port {}",port);
+        rusty_pipe_cli::run_server(port);
+    }else{
 
-        // let server_fut = server::run_server(
-        //     rx1,
-        //     tx2,
-        //     std::env::var("PORT")
-        //         .unwrap_or("3337".to_string())
-        //         .parse()
-        //         .unwrap_or(3337),
-        // );
-        let cli_fut = rusty_pipe_cli::cli_ui::run_tui_pipe(rx1, tx2);
-        let player_fut = rusty_pipe_cli::r_player::run_audio_player(rx2, tx1);
-        futures::join!(cli_fut, player_fut);
-    });
+
+        async_std::task::block_on(async {
+            let (tx1, rx1) = futures::channel::mpsc::channel(2);
+            let (tx2, rx2) = futures::channel::mpsc::channel(2);
+    
+            // let server_fut = server::run_server(
+            //     rx1,
+            //     tx2,
+            //     std::env::var("PORT")
+            //         .unwrap_or("3337".to_string())
+            //         .parse()
+            //         .unwrap_or(3337),
+            // );
+            let cli_fut = rusty_pipe_cli::cli_ui::run_tui_pipe(rx1, tx2);
+            let player_fut = rusty_pipe_cli::r_player::run_audio_player(rx2, tx1);
+            futures::join!(cli_fut, player_fut);
+        });
+    }
 
     Ok(())
 }
