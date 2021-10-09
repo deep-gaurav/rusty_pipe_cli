@@ -60,19 +60,27 @@ impl QueryRoot {
     }
 
     async fn play<'ctx>(&self, ctx: &Context<'_>, video_id: String) -> Result<bool, Error> {
+        log::info!("Get storage");
         let data = ctx.data::<Storage>()?;
-        let mut to_player_msg = data.to_player_message.lock().await;
+        log::info!("Get url");
         let mut stream_extractor = YTStreamExtractor::new(&video_id, YTDownloader {}).await?;
+        log::info!("Extractor creator");
         let audio_streams = stream_extractor.get_audio_streams()?;
+        log::info!("Received audio streams");
         let stream_info = audio_streams
             .iter()
             .filter(|f| f.mimeType.contains("mp4"))
             .nth(0)
             .ok_or("No m4a stream found")?;
         let url = stream_info.url.clone().ok_or("No url in stream")?;
+        log::info!("Received url");
 
         let response = surf::get(&url).send().await.unwrap();
         let length = response.len();
+        log::info!("Try to lock to_player_msg");
+
+        let mut to_player_msg = data.to_player_message.lock().await;
+        log::info!("Locked player messages");
         to_player_msg
             .send(ToPlayerMessages::Play(url, length))
             .await?;

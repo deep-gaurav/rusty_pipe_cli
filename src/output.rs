@@ -79,11 +79,19 @@ mod cpal {
     impl CpalAudioOutput {
         pub fn try_open(spec: SignalSpec, duration: Duration) -> Result<Box<dyn AudioOutput>> {
             // Get default host.
+            log::debug!("Get default host");
             let host = cpal::default_host();
+            log::debug!("Host found");
+            let default_output_device = host.default_output_device();
+            log::debug!("Got default output device {:#?}", default_output_device.is_some());
 
+            log::debug!("Total devices {:#?}",host.devices().map(|d|d.count()));
             // Get the default audio output device.
             let devices = match host.output_devices() {
-                Ok(device) => device,
+                Ok(device) => {
+                    log::debug!("Got devices ");
+                    device
+                },
                 _ => {
                     error!("failed to get default audio output device");
                     return Err(AudioOutputError::OpenStreamError);
@@ -94,6 +102,7 @@ mod cpal {
             // log::info!("found devices {:#?}",devices);
 
             let (config, device) = {
+                log::debug!("create config and device");
                 let mut c = None;
                 let mut d = None;
                 let mut min_sample_rate = u32::MAX;
@@ -258,6 +267,7 @@ mod cpal {
             let mut i = 0;
             let converted_samples = {
                 if self.rate != self.original_rate {
+                    log::debug!("trying to create sample rate converter");
                     let converter = samplerate::Samplerate::new(
                         samplerate::ConverterType::SincBestQuality,
                         self.original_rate,
@@ -265,6 +275,7 @@ mod cpal {
                         self.channels,
                     )
                     .expect("Cant create converter");
+                    log::debug!("trying to convert to new sample rate");
                     let new_sample = converter
                         .process_last(
                             &self

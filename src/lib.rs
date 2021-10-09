@@ -54,11 +54,13 @@ impl Read for StreamResponse {
             pos: self.current_position,
             buff: buf.len(),
         };
+        log::debug!("trying to send downnload task to downloader");
         self.down_sender
             .send(task.clone())
             .expect("Cant send to downloader");
         // log::info!("Download with downloader size {}", buf.len());
         let mut data = loop {
+            log::debug!("trying to recceive data from downloader");
             let reply = self.down_rcv.recv().expect("Cant receive from downloader");
             if reply.task == task {
                 break reply;
@@ -71,6 +73,7 @@ impl Read for StreamResponse {
         }
         buf[..data.data.len()].copy_from_slice(&data.data[..]);
         // async_std::task::block_on(async { self.response.read(buf).await })
+        log::debug!("Downloaded some bytes, sending to player to play");
         Ok(data.data.len())
     }
 }

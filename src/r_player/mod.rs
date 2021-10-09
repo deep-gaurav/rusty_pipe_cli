@@ -134,7 +134,9 @@ async fn play_audio(
                     if let Some(playing_data) = &mut playing_data {
                         if playing_data.is_playing {
                             // log::info!("playing data is play");
+                            log::debug!("Trying to play");
                             playing_data.play();
+                            log::debug!("Play done");
                             let to_send = PlayerMessage::Status(PlayerStatus {
                                 playing: true,
                                 current_status: {
@@ -355,16 +357,21 @@ impl PlayingData {
         let dur = &mut self.dur;
         let tb = &mut self.tb;
 
+        log::debug!("Trying to get packet");
         let packet = match self.reader.next_packet() {
-            Ok(packet) => packet,
-            Err(err) => return Err(err),
+            Ok(packet) => {
+                log::debug!("Packet received");
+                packet},
+            Err(err) =>{log::warn!("Cant get packet"); return Err(err)},
         };
 
+        log::debug!("Check player track");
         // If the packet does not belong to the selected track, skip it.
         if packet.track_id() != play_opts.track_id {
             return Ok(());
         }
 
+        log::debug!("Get metadata");
         //Print out new metadata.
         while !self.reader.metadata().is_latest() {
             self.reader.metadata().pop();
@@ -373,10 +380,13 @@ impl PlayingData {
                 print_update(rev);
             }
         }
+        log::debug!("Decode packet");
         let r = match decoder.decode(&packet) {
             Ok(decoded) => {
+                log::debug!("Decoded packet");
                 // If the audio output is not open, try to open it.
                 if audio_output.is_none() {
+                    log::debug!("Create output");
                     // Get the audio buffer specification. This is a description of the decoded
                     // audio buffer's sample format and sample rate.
                     let spec = *decoded.spec();
@@ -387,7 +397,9 @@ impl PlayingData {
                     let duration = decoded.capacity() as u64;
 
                     // Try to open the audio output.
+                    log::debug!("Try open cpal");
                     audio_output.replace(super::output::try_open(spec, duration).unwrap());
+                    log::debug!("Cpal opened");
                 } else {
                     // TODO: Check the audio spec. and duration hasn't changed.
                 }

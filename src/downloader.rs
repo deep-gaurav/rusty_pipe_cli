@@ -20,6 +20,7 @@ impl DownloaderS {
         std::thread::spawn(move || {
             while let Ok(data) = task_receiver.recv() {
                 {
+                    log::debug!("trying to lock tasks to add new");
                     thread_in_task.lock().expect("Cant get tasks").push(data)
                 }
             }
@@ -35,26 +36,31 @@ impl DownloaderS {
         log::info!("Downloader started");
 
         loop {
+            log::debug!("Check for download tasks");
             let mut dt = vec![];
             let mut futs = vec![];
             let mut complete_futs = vec![];
             let tasks: Vec<IncomingTask> = {
+                log::debug!("trying to get tasks");
                 self.tasks_to_respond
                     .lock()
-                    .expect("Cant get tasks")
+                    .expect("Cant lock tasks to get tasks")
                     .iter()
                     .cloned()
                     .collect::<Vec<_>>()
             };
+            log::debug!("Incoming tasks {}",tasks.len());
             for task in tasks.iter() {
                 let mut dtask = {
                     if let Some(task) = self.download_tasks.iter_mut().find(|p| p.url == task.url) {
                         task.clone()
                     } else {
+                        log::debug!("trying to create new download thread");
                         let dtask = DownloadTask::start_new_task(task.url.to_string())
                             .await
                             .expect("Cant create download task");
                         self.download_tasks.push(dtask);
+                        log::debug!("trying to get the just pushed thread");
                         self.download_tasks
                             .last_mut()
                             .expect("Just pushed!")
@@ -79,18 +85,27 @@ impl DownloaderS {
                     Ok((data, task, dtask)) => {
                         {
                             let mut tasks = self.tasks_to_respond.lock().expect("Cant loack");
+                            log::debug!("trying to remove task");
                             let pos = tasks
                                 .iter()
                                 .position(|t| t == &task)
                                 .expect("Task not found to remove");
                             tasks.remove(pos);
-                            let dtask_pos = self
+                            log::debug!("trying to get download task to replace");
+                            let dtask_pos = match self
                                 .download_tasks
                                 .iter()
                                 .position(|d| d.url == dtask.url)
-                                .expect("download task not present");
+                                {
+                                    Some(task)=>task,
+                                    None=>{
+                                        log::error!("Cant find task to replace old task");
+                                        panic!("Cant find task to replace old task");
+                                    }
+                                };
                             self.download_tasks[dtask_pos] = dtask;
                         }
+                        log::debug!("trying to reply download ");
                         self.responder
                             .send(Reply { task, data })
                             .expect("Cant reply");
@@ -105,11 +120,18 @@ impl DownloaderS {
             for res in complete_result {
                 match res {
                     Ok(dtask) => {
-                        let dtask_pos = self
+                        log::debug!("trying to get download task");
+                        let dtask_pos = match self
                             .download_tasks
                             .iter()
-                            .position(|d| d.url == dtask.url)
-                            .expect("download task not present");
+                            .position(|d| d.url == dtask.url){
+                                Some(tak) => tak,
+                                None => {
+                                    log::error!("Downloading task not found");
+                                    panic!("Downloading task not found")
+                                },
+                            };
+                            log::debug!("Download task found, setting");
                         self.download_tasks[dtask_pos] = dtask;
                     }
                     Err(err) => {
@@ -117,7 +139,10 @@ impl DownloaderS {
                     }
                 }
             }
+            log::debug!("Sleep for next loop");
             async_std::task::sleep(std::time::Duration::from_millis(50)).await;
+            log::debug!("Woke, continue next loop");
+
         }
     }
 }
@@ -155,6 +180,7 @@ impl DownloadProg {
         pos: usize,
         client: surf::Client,
     ) -> Result<Self, anyhow::Error> {
+        log::info!("Creating new thread at position {}",pos);
         let response = client
             .get(url)
             .header("Range", format!("bytes={}-", pos).as_str())
@@ -172,6 +198,7 @@ impl DownloadProg {
     pub async fn read(&mut self, size: usize) -> Result<Vec<u8>, anyhow::Error> {
         let mut buff = vec![0; size];
         let resp = {
+            log::debug!("trying to get response to continue download");
             let mut response = self.response.lock().expect("Cant lock response");
             if response.is_empty().unwrap_or(true) {
                 log::warn!("Body empty {:#?}", response.is_empty());
@@ -235,6 +262,8 @@ impl DownloadTask {
     }
 
     async fn complete_tasks(mut self) -> Result<Self, anyhow::Error> {
+        // if self.is_complete() {
+        // }
         if let Some(prog_down) = self.download_progs.first_mut() {
             let pos = prog_down.current_pos;
             let result = prog_down.read(2048).await;
@@ -260,6 +289,7 @@ impl DownloadTask {
                         let task = self.download_progs.remove(0);
                         log::debug!("Removed download thread");
                     }
+                    log::debug!("Downloaded len {}",data.len());
 
                     return Ok(self);
                 }
@@ -269,7 +299,9 @@ impl DownloadTask {
                 }
             }
         } else {
-            // log::debug!("Nothing to download ");
+            log::debug!("Nothing to download ");
+            // log::info!("Download completed");
+
             return Ok(self);
         }
     }
