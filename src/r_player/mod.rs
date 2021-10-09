@@ -85,15 +85,18 @@ async fn play_audio(
                     // log::info!("Got msg {:#?}", msg);
                     if let Some(msg) = msg {
                         match msg {
-                            ToPlayerMessages::Play(url, length) => {
+                            ToPlayerMessages::Play(options) => {
                                 if let Some(playing_data) = &mut playing_data {
-                                    if playing_data.url == url {
+                                    if &playing_data.url == &options.url {
                                         playing_data.is_playing = true;
                                         continue;
                                     }
                                 }
                                 let new_playing_data =
-                                    match create_new_player(&url, &rxdrecv, &txdsend, length) {
+                                    match create_new_player(&options.url, &rxdrecv, &txdsend, options.length,
+                                    options.file_path,
+                                    options.video_id,
+                                    ) {
                                         Some(value) => value,
                                         None => continue,
                                     };
@@ -241,6 +244,8 @@ fn create_new_player(
     rxdrecv: &crossbeam_channel::Receiver<crate::downloader::Reply>,
     txdsend: &crossbeam_channel::Sender<crate::downloader::IncomingTask>,
     length: Option<usize>,
+    file_path:Option<String>,
+    video_id:String,
 ) -> Option<PlayingData> {
     log::info!("Decoding stream");
     let decoded_data = crate::decode_m4a::decode(StreamResponse {
@@ -249,6 +254,8 @@ fn create_new_player(
         down_rcv: rxdrecv.clone(),
         down_sender: txdsend.clone(),
         total_length: length,
+        video_id,
+        file_name:file_path,
     });
     log::info!("Decoded stream");
     let mut reader = decoded_data;

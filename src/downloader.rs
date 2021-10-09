@@ -49,16 +49,20 @@ impl DownloaderS {
                     .cloned()
                     .collect::<Vec<_>>()
             };
-            log::debug!("Incoming tasks {}",tasks.len());
+            log::debug!("Incoming tasks {}", tasks.len());
             for task in tasks.iter() {
                 let mut dtask = {
                     if let Some(task) = self.download_tasks.iter_mut().find(|p| p.url == task.url) {
                         task.clone()
                     } else {
                         log::debug!("trying to create new download thread");
-                        let dtask = DownloadTask::start_new_task(task.url.to_string())
-                            .await
-                            .expect("Cant create download task");
+                        let dtask = DownloadTask::start_new_task(
+                            task.url.to_string(),
+                            task.video_id.clone(),
+                            task.file_path.clone(),
+                        )
+                        .await
+                        .expect("Cant create download task");
                         self.download_tasks.push(dtask);
                         log::debug!("trying to get the just pushed thread");
                         self.download_tasks
@@ -92,13 +96,10 @@ impl DownloaderS {
                                 .expect("Task not found to remove");
                             tasks.remove(pos);
                             log::debug!("trying to get download task to replace");
-                            let dtask_pos = match self
-                                .download_tasks
-                                .iter()
-                                .position(|d| d.url == dtask.url)
-                                {
-                                    Some(task)=>task,
-                                    None=>{
+                            let dtask_pos =
+                                match self.download_tasks.iter().position(|d| d.url == dtask.url) {
+                                    Some(task) => task,
+                                    None => {
                                         log::error!("Cant find task to replace old task");
                                         panic!("Cant find task to replace old task");
                                     }
@@ -121,17 +122,15 @@ impl DownloaderS {
                 match res {
                     Ok(dtask) => {
                         log::debug!("trying to get download task");
-                        let dtask_pos = match self
-                            .download_tasks
-                            .iter()
-                            .position(|d| d.url == dtask.url){
+                        let dtask_pos =
+                            match self.download_tasks.iter().position(|d| d.url == dtask.url) {
                                 Some(tak) => tak,
                                 None => {
                                     log::error!("Downloading task not found");
                                     panic!("Downloading task not found")
-                                },
+                                }
                             };
-                            log::debug!("Download task found, setting");
+                        log::debug!("Download task found, setting");
                         self.download_tasks[dtask_pos] = dtask;
                     }
                     Err(err) => {
@@ -142,7 +141,6 @@ impl DownloaderS {
             log::debug!("Sleep for next loop");
             async_std::task::sleep(std::time::Duration::from_millis(50)).await;
             log::debug!("Woke, continue next loop");
-
         }
     }
 }
@@ -152,6 +150,8 @@ pub struct IncomingTask {
     pub url: String,
     pub pos: usize,
     pub buff: usize,
+    pub video_id: String,
+    pub file_path: Option<String>,
 }
 
 pub struct Reply {
@@ -166,6 +166,9 @@ pub struct DownloadTask {
     pub buff: Vec<Option<u8>>,
     pub client: surf::Client,
     pub download_progs: Vec<DownloadProg>,
+    pub file_name: Option<String>,
+    pub video_id: String,
+    pub has_cached: bool,
 }
 
 #[derive(Clone)]
@@ -180,7 +183,7 @@ impl DownloadProg {
         pos: usize,
         client: surf::Client,
     ) -> Result<Self, anyhow::Error> {
-        log::info!("Creating new thread at position {}",pos);
+        log::info!("Creating new thread at position {}", pos);
         let response = client
             .get(url)
             .header("Range", format!("bytes={}-", pos).as_str())
@@ -236,7 +239,11 @@ impl DownloadProg {
 }
 
 impl DownloadTask {
-    async fn start_new_task(url: String) -> Result<Self, anyhow::Error> {
+    async fn start_new_task(
+        url: String,
+        video_id: String,
+        file_name: Option<String>,
+    ) -> Result<Self, anyhow::Error> {
         let client = surf::client();
         let response = client
             .get(&url)
@@ -247,18 +254,43 @@ impl DownloadTask {
             .ok_or(anyhow::anyhow!("Content length not known"))?;
         log::info!("Content length found {}", length);
 
-        let buff = vec![None; length];
+        let mut buff = vec![None; length];
+        if let Some(path) = &file_name {
+            match async_std::fs::read(path).await {
+                Ok(data) => {
+                    buff = data.iter().map(|item| Some(*item)).collect();
+                }
+                Err(err) => {
+                    log::error!("Not cached!");
+                }
+            }
+        }
         Ok(Self {
             url,
             len: length,
+
+            has_cached:!buff.is_empty(),
             buff,
             client,
             download_progs: vec![],
+            video_id,
+            file_name,
         })
     }
 
     fn is_complete(&self) -> bool {
         self.buff.iter().all(|f| f.is_some())
+    }
+
+    async fn cache_to_file(&mut self){
+        if let Some(path) = &self.file_name{
+            let content = self.buff.iter().filter_map(|f|f.as_ref()).map(|f|*f).collect::<Vec<_>>();
+            let res = async_std::fs::write(path, content).await;
+            if let Err(err)=res{
+                log::error!("Cant save to file {:#?}",err);
+            }
+            self.has_cached = true;
+        }
     }
 
     async fn complete_tasks(mut self) -> Result<Self, anyhow::Error> {
@@ -289,7 +321,7 @@ impl DownloadTask {
                         let task = self.download_progs.remove(0);
                         log::debug!("Removed download thread");
                     }
-                    log::debug!("Downloaded len {}",data.len());
+                    log::debug!("Downloaded len {}", data.len());
 
                     return Ok(self);
                 }

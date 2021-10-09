@@ -41,6 +41,8 @@ pub fn get_unused_port()->Option<u16>{
 
 pub struct StreamResponse {
     url: String,
+    video_id:String,
+    file_name:Option<String>,
     current_position: usize,
     down_sender: crossbeam_channel::Sender<IncomingTask>,
     down_rcv: crossbeam_channel::Receiver<Reply>,
@@ -53,6 +55,8 @@ impl Read for StreamResponse {
             url: self.url.to_string(),
             pos: self.current_position,
             buff: buf.len(),
+            video_id:self.video_id.clone(),
+            file_path:self.file_name.clone(),
         };
         log::debug!("trying to send downnload task to downloader");
         self.down_sender

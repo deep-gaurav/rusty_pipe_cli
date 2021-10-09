@@ -17,10 +17,17 @@ use super::{search::Search, stream::Video};
 
 #[derive(Debug, Clone)]
 pub enum ToPlayerMessages {
-    Play(String, Option<usize>),
+    Play(PlayOptions),
     Resume,
     Pause,
     Seek(i64),
+}
+#[derive(Debug,Clone)]
+pub struct PlayOptions{
+    pub video_id:String,
+    pub url:String,
+    pub length:Option<usize>,
+    pub file_path:Option<String>,
 }
 
 #[derive(Union, PartialEq, Clone)]
@@ -48,7 +55,7 @@ impl QueryRoot {
     async fn video(&self, video_id: String) -> Result<Video, Error> {
         log::info!("Readying stream extractor");
         let ytextractor = YTStreamExtractor::new(&video_id, YTDownloader {}).await?;
-        log::info!("Stream extractor ready");
+        log::info!("Stream extractor read length, file_path: todo!() y");
         Ok(Video {
             extractor: ytextractor,
         })
@@ -59,22 +66,9 @@ impl QueryRoot {
         Ok(Search { extractor })
     }
 
-    async fn play<'ctx>(&self, ctx: &Context<'_>, video_id: String) -> Result<bool, Error> {
+    async fn play<'ctx>(&self, ctx: &Context<'_>, video_id: String,url:String, file_path:Option<String>) -> Result<bool, Error> {
         log::info!("Get storage");
         let data = ctx.data::<Storage>()?;
-        log::info!("Get url");
-        let mut stream_extractor = YTStreamExtractor::new(&video_id, YTDownloader {}).await?;
-        log::info!("Extractor creator");
-        let audio_streams = stream_extractor.get_audio_streams()?;
-        log::info!("Received audio streams");
-        let stream_info = audio_streams
-            .iter()
-            .filter(|f| f.mimeType.contains("mp4"))
-            .nth(0)
-            .ok_or("No m4a stream found")?;
-        let url = stream_info.url.clone().ok_or("No url in stream")?;
-        log::info!("Received url");
-
         let response = surf::get(&url).send().await.unwrap();
         let length = response.len();
         log::info!("Try to lock to_player_msg");
@@ -82,7 +76,12 @@ impl QueryRoot {
         let mut to_player_msg = data.to_player_message.lock().await;
         log::info!("Locked player messages");
         to_player_msg
-            .send(ToPlayerMessages::Play(url, length))
+            .send(ToPlayerMessages::Play(PlayOptions{
+                video_id,
+                url,
+                length,
+                file_path,
+            }))
             .await?;
         Ok(true)
     }

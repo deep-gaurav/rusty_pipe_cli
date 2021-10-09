@@ -10,10 +10,7 @@ use rusty_pipe::youtube_extractor::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use crate::{
-    server::schema::{PlayerMessage, PlayerStatus, ToPlayerMessages},
-    yt_downloader::YTDownloader,
-};
+use crate::{server::schema::{PlayOptions, PlayerMessage, PlayerStatus, ToPlayerMessages}, yt_downloader::YTDownloader};
 
 use async_std::prelude::*;
 use tui::{
@@ -282,7 +279,12 @@ pub async fn run_tui_pipe(
                                                 if let Ok((url, size)) = play_video(&video_id).await
                                                 {
                                                     msg_sender
-                                                        .send(ToPlayerMessages::Play(url, size))
+                                                        .send(ToPlayerMessages::Play(PlayOptions{
+                                                            url,
+                                                            length:size,
+                                                            video_id,
+                                                            file_path:None,
+                                                        }))
                                                         .await;
                                                 }
                                             }
