@@ -255,10 +255,12 @@ impl DownloadTask {
         log::info!("Content length found {}", length);
 
         let mut buff = vec![None; length];
+        let mut has_cached = false;
         if let Some(path) = &file_name {
             match async_std::fs::read(path).await {
                 Ok(data) => {
                     buff = data.iter().map(|item| Some(*item)).collect();
+                    has_cached = true;
                 }
                 Err(err) => {
                     log::error!("Not cached!");
@@ -269,7 +271,7 @@ impl DownloadTask {
             url,
             len: length,
 
-            has_cached:!buff.is_empty(),
+            has_cached,
             buff,
             client,
             download_progs: vec![],
@@ -282,12 +284,17 @@ impl DownloadTask {
         self.buff.iter().all(|f| f.is_some())
     }
 
-    async fn cache_to_file(&mut self){
-        if let Some(path) = &self.file_name{
-            let content = self.buff.iter().filter_map(|f|f.as_ref()).map(|f|*f).collect::<Vec<_>>();
+    async fn cache_to_file(&mut self) {
+        if let Some(path) = &self.file_name {
+            let content = self
+                .buff
+                .iter()
+                .filter_map(|f| f.as_ref())
+                .map(|f| *f)
+                .collect::<Vec<_>>();
             let res = async_std::fs::write(path, content).await;
-            if let Err(err)=res{
-                log::error!("Cant save to file {:#?}",err);
+            if let Err(err) = res {
+                log::error!("Cant save to file {:#?}", err);
             }
             self.has_cached = true;
         }
@@ -296,6 +303,13 @@ impl DownloadTask {
     async fn complete_tasks(mut self) -> Result<Self, anyhow::Error> {
         // if self.is_complete() {
         // }
+
+        if self.is_complete() {
+            log::info!("Download complete");
+            if !self.has_cached {
+                self.cache_to_file().await;
+            }
+        }
         if let Some(prog_down) = self.download_progs.first_mut() {
             let pos = prog_down.current_pos;
             let result = prog_down.read(2048).await;
@@ -402,6 +416,9 @@ impl DownloadTask {
 
                         if self.is_complete() {
                             log::info!("Download complete");
+                            if (!self.has_cached) {
+                                self.cache_to_file().await;
+                            }
                         }
                         return Ok((data, task, self));
                     }

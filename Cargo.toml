@@ -45,6 +45,7 @@ crossterm = { version = "0.21", features = ["event-stream"] }
 rand = "0.8"
 Boa = { git = "https://github.com/boa-dev/boa.git" }
 portpicker = "0.1.1"
+dirs = "4.0.0"
 # oboe = {version = "0.4.4",features = ["shared-stdcxx"]}
 # aaudio = "0.1"
 

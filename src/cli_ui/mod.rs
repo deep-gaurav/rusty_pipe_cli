@@ -278,12 +278,32 @@ pub async fn run_tui_pipe(
                                             if let Ok(video_id) = video.video_id() {
                                                 if let Ok((url, size)) = play_video(&video_id).await
                                                 {
+                                                    let mut cache_dir = dirs::audio_dir();
+                                                    let mut path = None;
+                                                    if let Some(dir)=&mut  cache_dir{
+                                                        dir.push("RustyPipe");
+
+                                                        let res = async_std::fs::create_dir_all(&dir).await;
+                                                        
+                                                        dir.push(format!("{}",video_id))
+                                                        ;
+                                                        dir.set_extension("m4a");
+                                                        match res{
+                                                            Ok(_) => {
+
+                                                        path = dir.to_str().to_owned().map(|f|f.to_string());
+                                                            },
+                                                            Err(err) => {
+                                                                log::error!("Cant create cache dir {:#?}",err)
+                                                            },
+                                                        }
+                                                    }
                                                     msg_sender
                                                         .send(ToPlayerMessages::Play(PlayOptions{
                                                             url,
                                                             length:size,
                                                             video_id,
-                                                            file_path:None,
+                                                            file_path:path,
                                                         }))
                                                         .await;
                                                 }
