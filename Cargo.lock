@@ -4,8 +4,8 @@ version = 3
 
 [[package]]
 name = "Boa"
-version = "0.11.0"
-source = "git+https://github.com/boa-dev/boa.git#68d75bdd72049a02d29f2b68fbc98cf832edd557"
+version = "0.13.0"
+source = "git+https://github.com/boa-dev/boa.git#aacdd12ed900a1a0db6debd478f303422885a831"
 dependencies = [
  "bitflags",
  "boa_unicode",
@@ -215,9 +215,9 @@ dependencies = [
 
 [[package]]
 name = "async-graphql"
-version = "2.10.1"
+version = "2.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95b2e3ae5916a72f724593dfef3a35cd7b46845730be06f6444acdb9aa693730"
+checksum = "c8a5bb9cdc45035df039132dd466621e6459f9ac378dc2874ded5254f539c616"
 dependencies = [
  "async-graphql-derive",
  "async-graphql-parser",
@@ -243,9 +243,9 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-derive"
-version = "2.10.1"
+version = "2.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c25a9c8271c44fab115a6aab82646f3c6748e08a7a5acdcece3fcb93a858467"
+checksum = "99941fdd3b5745f4bd34a3e6b539f6604badd07c15a6a2e915e0e041a09c002e"
 dependencies = [
  "Inflector",
  "async-graphql-parser",
@@ -259,9 +259,9 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-parser"
-version = "2.10.1"
+version = "2.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "718f05c9b8ad72003014e0b419aeb08ed782b701ac621733a40c526ebf8b9b76"
+checksum = "aee8226c393b6c834665ebaae398fa9936f7c1af48055f55ce7138af6dfc66e3"
 dependencies = [
  "async-graphql-value",
  "pest",
@@ -272,9 +272,9 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-tide"
-version = "2.10.1"
+version = "2.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c3e9b2eeb9e117e08ed5c49dc40cd90412fc075057215fc12670041893460cf"
+checksum = "617af422ea4546e931a78dc4bd9d82631f8bb4267e1fc4153fb68cdc0d4bae82"
 dependencies = [
  "async-graphql",
  "async-trait",
@@ -286,9 +286,9 @@ dependencies = [
 
 [[package]]
 name = "async-graphql-value"
-version = "2.10.1"
+version = "2.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f48b298918bb0b642778d3432307d15237e4f1386cecdb2aa5719d84030007c8"
+checksum = "568d658bca34d74d4bd3101ee44a0cfb343337534b1ce8de5e2776f74b999f27"
 dependencies = [
  "bytes 1.1.0",
  "serde",
@@ -632,8 +632,8 @@ dependencies = [
 
 [[package]]
 name = "boa_unicode"
-version = "0.11.0"
-source = "git+https://github.com/boa-dev/boa.git#68d75bdd72049a02d29f2b68fbc98cf832edd557"
+version = "0.13.0"
+source = "git+https://github.com/boa-dev/boa.git#aacdd12ed900a1a0db6debd478f303422885a831"
 dependencies = [
  "unicode-general-category",
 ]
@@ -864,8 +864,7 @@ dependencies = [
 [[package]]
 name = "cpal"
 version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98f45f0a21f617cd2c788889ef710b63f075c949259593ea09c826f1e47a2418"
+source = "git+https://github.com/deep-gaurav/cpal.git#744d269d59a8e139f42a8cb8cd53e6c2ab834233"
 dependencies = [
  "alsa",
  "core-foundation-sys",
@@ -875,8 +874,8 @@ dependencies = [
  "lazy_static",
  "libc",
  "mach",
- "ndk 0.3.0",
- "ndk-glue 0.3.0",
+ "ndk",
+ "ndk-glue",
  "nix",
  "oboe",
  "parking_lot",
@@ -1796,9 +1795,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.102"
+version = "0.2.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2a5ac8f984bfcf3a823267e5fde638acc3325f6496633a5da6bb6eb2171e103"
+checksum = "dd8f7255a17a627354f321ef0055d63b898c6fb27eff628af4d1b66b7331edf6"
 
 [[package]]
 name = "libloading"
@@ -1993,19 +1992,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ndk"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d64d6af06fde0e527b1ba5c7b79a6cc89cfc46325b0b2887dffe8f70197e0c3c"
-dependencies = [
- "bitflags",
- "jni-sys",
- "ndk-sys",
- "num_enum",
- "thiserror",
-]
-
-[[package]]
 name = "ndk-glue"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2014,21 +2000,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "log",
- "ndk 0.3.0",
- "ndk-macro",
- "ndk-sys",
-]
-
-[[package]]
-name = "ndk-glue"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3e9e94628f24e7a3cb5b96a2dc5683acd9230bf11991c2a1677b87695138420"
-dependencies = [
- "lazy_static",
- "libc",
- "log",
- "ndk 0.4.0",
+ "ndk",
  "ndk-macro",
  "ndk-sys",
 ]
@@ -2183,9 +2155,6 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e15e22bc67e047fe342a32ecba55f555e3be6166b04dd157cd0f803dfa9f48e1"
 dependencies = [
- "jni",
- "ndk 0.4.0",
- "ndk-glue 0.4.0",
  "num-derive",
  "num-traits",
  "oboe-sys",
@@ -2400,9 +2369,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pkg-config"
-version = "0.3.19"
+version = "0.3.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
+checksum = "7c9b1041b4387893b91ee6746cddfc28516aff326a3519fb2adf820932c5e6cb"
 
 [[package]]
 name = "polling"
@@ -2834,9 +2803,9 @@ dependencies = [
 
 [[package]]
 name = "serde_qs"
-version = "0.8.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8a72808528a89fa9eca23bbb6a1eb92cb639b881357269b6510f11e50c0f8a9"
+checksum = "c7715380eec75f029a4ef7de39a9200e0a63823176b759d055b613f5a87df6a6"
 dependencies = [
  "percent-encoding",
  "serde",
@@ -2952,9 +2921,9 @@ checksum = "c307a32c1c5c437f38c7fd45d753050587732ba8628319fbdf12a7e289ccc590"
 
 [[package]]
 name = "smallvec"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
+checksum = "1ecab6c735a6bb4139c0caafd0cc3635748bbb3acf4550e8138122099251f309"
 
 [[package]]
 name = "socket2"
@@ -3109,7 +3078,7 @@ checksum = "45f6ee7c7b87caf59549e9fe45d6a69c75c8019e79e212a835c5da0e92f0ba08"
 [[package]]
 name = "symphonia"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "lazy_static",
  "symphonia-bundle-flac",
@@ -3126,7 +3095,7 @@ dependencies = [
 [[package]]
 name = "symphonia-bundle-flac"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "log",
  "symphonia-core",
@@ -3137,7 +3106,7 @@ dependencies = [
 [[package]]
 name = "symphonia-codec-aac"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "lazy_static",
  "log",
@@ -3147,7 +3116,7 @@ dependencies = [
 [[package]]
 name = "symphonia-codec-pcm"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "log",
  "symphonia-core",
@@ -3156,7 +3125,7 @@ dependencies = [
 [[package]]
 name = "symphonia-codec-vorbis"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "log",
  "symphonia-core",
@@ -3166,7 +3135,7 @@ dependencies = [
 [[package]]
 name = "symphonia-core"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "arrayvec 0.7.1",
  "bitflags",
@@ -3178,7 +3147,7 @@ dependencies = [
 [[package]]
 name = "symphonia-format-isomp4"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "encoding_rs",
  "log",
@@ -3189,7 +3158,7 @@ dependencies = [
 [[package]]
 name = "symphonia-format-ogg"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "log",
  "symphonia-core",
@@ -3200,7 +3169,7 @@ dependencies = [
 [[package]]
 name = "symphonia-format-wav"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "log",
  "symphonia-core",
@@ -3210,7 +3179,7 @@ dependencies = [
 [[package]]
 name = "symphonia-metadata"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "encoding_rs",
  "lazy_static",
@@ -3221,7 +3190,7 @@ dependencies = [
 [[package]]
 name = "symphonia-utils-xiph"
 version = "0.4.0"
-source = "git+https://github.com/deep-gaurav/Symphonia.git#c038de21e1e8f75053bb71ef7bd392b70f063b97"
+source = "git+https://github.com/deep-gaurav/Symphonia.git#837f47a15ec5d713b976f1d4176388d3b2e11e5c"
 dependencies = [
  "symphonia-core",
  "symphonia-metadata",
@@ -3394,9 +3363,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5241dd6f21443a3606b432718b166d3cedc962fd4b8bea54a8bc7f514ebda986"
+checksum = "f83b2a3d4d9091d0abd7eba4dc2710b1718583bd4d8992e2190720ea38f391f7"
 dependencies = [
  "tinyvec_macros",
 ]
