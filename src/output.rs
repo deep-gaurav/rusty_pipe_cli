@@ -35,7 +35,7 @@ mod cpal {
     use symphonia::core::conv::ConvertibleSample;
     use symphonia::core::units::Duration;
 
-    use cpal;
+    use cpal::{self, SampleFormat};
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     use rb::*;
 
@@ -111,6 +111,25 @@ mod cpal {
                 let mut close_d = None;
                 let mut close_val = std::i64::MAX;
                 log::debug!("Loop devices");
+                let ignore_nonf = {
+                    let mut ig = false;
+                    if let Ok(devices) = host.devices(){
+                        for d in devices{
+                            if let Ok(conf) = d.supported_output_configs(){
+                                for c in conf{
+                                    if c.sample_format() == SampleFormat::F32{
+                                        ig = true;
+                                        break;
+                                    }
+                                }
+                                if ig{
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    ig
+                };
                 for device in devices {
                     log::info!("Get supported configs");
                     match device.supported_output_configs() {
@@ -118,6 +137,9 @@ mod cpal {
                             log::debug!("Received configs");
                             if let Some(config) = config.next() {
                                 log::debug!("Config rates {:#?} - {:#?}, format {:#?}",config.min_sample_rate(),config.max_sample_rate(),config.sample_format());
+                                if ignore_nonf && config.sample_format()!=SampleFormat::F32{
+                                    continue;
+                                }
                                 if spec.rate <= config.max_sample_rate().0
                                     && spec.rate >= config.min_sample_rate().0
                                 {
@@ -132,10 +154,14 @@ mod cpal {
                                 if config.max_sample_rate().0 > max_sample_rate {
                                     max_sample_rate = config.max_sample_rate().0;
                                 }
+
+                                log::info!("Current Confir min {:#?} max {:#?} format {:#?}",config.min_sample_rate(),config.max_sample_rate(),config.sample_format());
                                 let min_diff = config.min_sample_rate().0 as i64-spec.rate as i64;
                                 let max_diff = config.max_sample_rate().0 as i64-spec.rate as i64;
                                 let new_close_val = std::cmp::min(min_diff.abs(),max_diff.abs() );
                                 if new_close_val < close_val {
+                                    log::info!("Old close val {}",close_val);
+                                    log::info!("New close val {}", new_close_val);
                                     close_val = new_close_val;
                                     let rate  = {
                                         if close_val == max_diff.abs(){
