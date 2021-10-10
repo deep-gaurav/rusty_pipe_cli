@@ -242,7 +242,7 @@ async fn play_audio(
 fn create_new_player(
     url: &String,
     rxdrecv: &crossbeam_channel::Receiver<crate::downloader::Reply>,
-    txdsend: &crossbeam_channel::Sender<crate::downloader::IncomingTask>,
+    txdsend: &crossbeam_channel::Sender<crate::downloader::DownloaderInput>,
     length: Option<usize>,
     file_path:Option<String>,
     video_id:String,

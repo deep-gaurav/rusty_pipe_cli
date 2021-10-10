@@ -108,6 +108,8 @@ mod cpal {
                 let mut d = None;
                 let mut min_sample_rate = u32::MAX;
                 let mut max_sample_rate = 0;
+                let mut close_d = None;
+                let mut close_val = std::i64::MAX;
                 log::debug!("Loop devices");
                 for device in devices {
                     log::info!("Get supported configs");
@@ -130,6 +132,21 @@ mod cpal {
                                 if config.max_sample_rate().0 > max_sample_rate {
                                     max_sample_rate = config.max_sample_rate().0;
                                 }
+                                let min_diff = config.min_sample_rate().0 as i64-spec.rate as i64;
+                                let max_diff = config.max_sample_rate().0 as i64-spec.rate as i64;
+                                let new_close_val = std::cmp::min(min_diff.abs(),max_diff.abs() );
+                                if new_close_val < close_val {
+                                    close_val = new_close_val;
+                                    let rate  = {
+                                        if close_val == max_diff.abs(){
+                                            config.max_sample_rate()
+                                        }else{
+                                            config.min_sample_rate()
+                                        }
+                                    };
+                                    close_d = Some((config.with_sample_rate(rate),device));
+
+                                }
                             }
                         }
                         Err(err) => {
@@ -144,7 +161,12 @@ mod cpal {
                 log::debug!("set default device");
                 if c.is_none() {
                     log::debug!("No suitable config set");
-                    if let Some(device) = host.default_output_device() {
+                    if let Some((config,device)) = close_d{
+                        c = Some(config);
+                        d = Some(device);
+                        need_h_sam = true;
+                    }
+                    else if let Some(device) = host.default_output_device() {
                         if let Ok(config) = device.default_output_config() {
                             log::debug!("Use default config");
                             c = Some(config);

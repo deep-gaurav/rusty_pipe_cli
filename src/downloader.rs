@@ -5,14 +5,14 @@ use std::sync::Mutex;
 use std::sync::{Arc, RwLock};
 
 pub struct DownloaderS {
-    tasks_to_respond: Arc<Mutex<Vec<IncomingTask>>>,
+    tasks_to_respond: Arc<Mutex<Vec<DownloaderInput>>>,
     responder: crossbeam_channel::Sender<Reply>,
     download_tasks: Vec<DownloadTask>,
 }
 
 impl DownloaderS {
     pub fn new(
-        task_receiver: crossbeam_channel::Receiver<IncomingTask>,
+        task_receiver: crossbeam_channel::Receiver<DownloaderInput>,
         responder: crossbeam_channel::Sender<Reply>,
     ) -> Self {
         let incoming_tasks = Arc::new(Mutex::new(vec![]));
@@ -40,7 +40,7 @@ impl DownloaderS {
             let mut dt = vec![];
             let mut futs = vec![];
             let mut complete_futs = vec![];
-            let tasks: Vec<IncomingTask> = {
+            let tasks: Vec<DownloaderInput> = {
                 log::debug!("trying to get tasks");
                 self.tasks_to_respond
                     .lock()
@@ -51,8 +51,11 @@ impl DownloaderS {
             };
             log::debug!("Incoming tasks {}", tasks.len());
             for task in tasks.iter() {
+                match &task {
+                    DownloaderInput::DownloadTask(task) => {
+                        
                 let mut dtask = {
-                    if let Some(task) = self.download_tasks.iter_mut().find(|p| p.url == task.url) {
+                    if let Some(task) = self.download_tasks.iter_mut().find(|p| p.video_id == task.video_id) {
                         task.clone()
                     } else {
                         log::debug!("trying to create new download thread");
@@ -72,6 +75,11 @@ impl DownloaderS {
                     }
                 };
                 dt.push((dtask, task.clone()));
+                    },
+                    DownloaderInput::RemoveDownload(id) => {
+                        self.download_tasks.retain(|task|&task.video_id!=id);
+                    },
+                }
             }
             for (mut dtask, task) in dt {
                 futs.push(dtask.download_task(task.clone()));
@@ -92,7 +100,7 @@ impl DownloaderS {
                             log::debug!("trying to remove task");
                             let pos = tasks
                                 .iter()
-                                .position(|t| t == &task)
+                                .position(|t| t.as_download_task().and_then(|t|Some(t==&task)).unwrap_or(false) )
                                 .expect("Task not found to remove");
                             tasks.remove(pos);
                             log::debug!("trying to get download task to replace");
@@ -141,6 +149,28 @@ impl DownloaderS {
             log::debug!("Sleep for next loop");
             async_std::task::sleep(std::time::Duration::from_millis(50)).await;
             log::debug!("Woke, continue next loop");
+        }
+    }
+}
+#[derive(Clone, PartialEq)]
+pub enum DownloaderInput {
+    DownloadTask(IncomingTask),
+    RemoveDownload(String),
+}
+
+impl DownloaderInput {
+    pub fn id(&self)->String{
+        match self{
+            DownloaderInput::DownloadTask(task) => task.video_id.to_string(),
+            DownloaderInput::RemoveDownload(id) => id.to_string(),
+        }
+    }
+
+    pub fn as_download_task(&self) -> Option<&IncomingTask> {
+        if let Self::DownloadTask(v) = self {
+            Some(v)
+        } else {
+            None
         }
     }
 }

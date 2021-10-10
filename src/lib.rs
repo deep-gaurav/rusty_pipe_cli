@@ -1,6 +1,6 @@
 use std::io::{self, Read, Seek, SeekFrom};
 
-use downloader::{IncomingTask, Reply};
+use downloader::{DownloaderInput, IncomingTask, Reply};
 use symphonia::core::io::MediaSource;
 
 
@@ -44,7 +44,7 @@ pub struct StreamResponse {
     video_id:String,
     file_name:Option<String>,
     current_position: usize,
-    down_sender: crossbeam_channel::Sender<IncomingTask>,
+    down_sender: crossbeam_channel::Sender<DownloaderInput>,
     down_rcv: crossbeam_channel::Receiver<Reply>,
     total_length: Option<usize>,
 }
@@ -60,7 +60,7 @@ impl Read for StreamResponse {
         };
         log::debug!("trying to send downnload task to downloader");
         self.down_sender
-            .send(task.clone())
+            .send(DownloaderInput::DownloadTask(task.clone()))
             .expect("Cant send to downloader");
         // log::info!("Download with downloader size {}", buf.len());
         let mut data = loop {
@@ -79,6 +79,14 @@ impl Read for StreamResponse {
         // async_std::task::block_on(async { self.response.read(buf).await })
         log::debug!("Downloaded some bytes, sending to player to play");
         Ok(data.data.len())
+    }
+}
+
+impl Drop for StreamResponse{
+    fn drop(&mut self) {
+        if let Err(err) = self.down_sender.send(DownloaderInput::RemoveDownload(self.video_id.clone())){
+            log::error!("Cant remove download {:#?}",err);
+        }
     }
 }
 
