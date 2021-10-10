@@ -92,17 +92,18 @@ async fn play_audio(
                                         continue;
                                     }
                                 }
-                                let new_playing_data =
-                                    match create_new_player(&options.url, &rxdrecv, &txdsend, options.length,
+                                let new_playing_data = create_new_player(
+                                    &options.url,
+                                    &rxdrecv,
+                                    &txdsend,
+                                    options.length,
                                     options.file_path,
                                     options.video_id,
-                                    ) {
-                                        Some(value) => value,
-                                        None => continue,
-                                    };
+                                    playing_data.and_then(|d| d.audio_output),
+                                );
 
                                 // Decode the packet into audio samples.
-                                playing_data = Some(new_playing_data);
+                                playing_data = new_playing_data;
                             }
                             ToPlayerMessages::Pause => {
                                 if let Some(playing_data) = &mut playing_data {
@@ -244,8 +245,9 @@ fn create_new_player(
     rxdrecv: &crossbeam_channel::Receiver<crate::downloader::Reply>,
     txdsend: &crossbeam_channel::Sender<crate::downloader::DownloaderInput>,
     length: Option<usize>,
-    file_path:Option<String>,
-    video_id:String,
+    file_path: Option<String>,
+    video_id: String,
+    audio_output: Option<Box<dyn AudioOutput>>,
 ) -> Option<PlayingData> {
     log::info!("Decoding stream");
     let decoded_data = crate::decode_m4a::decode(StreamResponse {
@@ -255,7 +257,7 @@ fn create_new_player(
         down_sender: txdsend.clone(),
         total_length: length,
         video_id,
-        file_name:file_path,
+        file_name: file_path,
     });
     log::info!("Decoded stream");
     let mut reader = decoded_data;
@@ -298,7 +300,7 @@ fn create_new_player(
         // If not seeking, the seek timestamp is 0.
         0
     };
-    let mut audio_output = None;
+    // let mut audio_output = None;
     let mut track_info = PlayTrackOptions { track_id, seek_ts };
     let mut play_opts = track_info;
     let track = match reader
@@ -368,8 +370,12 @@ impl PlayingData {
         let packet = match self.reader.next_packet() {
             Ok(packet) => {
                 log::debug!("Packet received");
-                packet},
-            Err(err) =>{log::warn!("Cant get packet"); return Err(err)},
+                packet
+            }
+            Err(err) => {
+                log::warn!("Cant get packet");
+                return Err(err);
+            }
         };
 
         log::debug!("Check player track");
