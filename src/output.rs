@@ -86,6 +86,7 @@ mod cpal {
             log::debug!("Got default output device {:#?}", default_output_device.is_some());
 
             log::debug!("Total devices {:#?}",host.devices().map(|d|d.count()));
+            log::debug!("Output devices {:#?}",host.output_devices().map(|d|d.count()));
             // Get the default audio output device.
             let devices = match host.output_devices() {
                 Ok(device) => {
@@ -102,18 +103,23 @@ mod cpal {
             // log::info!("found devices {:#?}",devices);
 
             let (config, device) = {
-                log::debug!("create config and device");
+                log::debug!("create config and devices");
                 let mut c = None;
                 let mut d = None;
                 let mut min_sample_rate = u32::MAX;
                 let mut max_sample_rate = 0;
+                log::debug!("Loop devices");
                 for device in devices {
+                    log::info!("Get supported configs");
                     match device.supported_output_configs() {
                         Ok(mut config) => {
+                            log::debug!("Received configs");
                             if let Some(config) = config.next() {
+                                log::debug!("Config rates {:#?} - {:#?}, format {:#?}",config.min_sample_rate(),config.max_sample_rate(),config.sample_format());
                                 if spec.rate <= config.max_sample_rate().0
                                     && spec.rate >= config.min_sample_rate().0
                                 {
+                                    log::debug!("Setting config");
                                     c = Some(config.with_sample_rate(cpal::SampleRate(spec.rate)));
                                     d = Some(device);
                                     break;
@@ -135,15 +141,19 @@ mod cpal {
                         }
                     };
                 }
+                log::debug!("set default device");
                 if c.is_none() {
+                    log::debug!("No suitable config set");
                     if let Some(device) = host.default_output_device() {
                         if let Ok(config) = device.default_output_config() {
+                            log::debug!("Use default config");
                             c = Some(config);
                             d = Some(device);
                             need_h_sam = true;
                         }
                     }
                 }
+                log::debug!("Return device and config");
                 if let Some(out) = c {
                     (out, d.unwrap())
                 } else {
