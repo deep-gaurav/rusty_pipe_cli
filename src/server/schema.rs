@@ -22,12 +22,12 @@ pub enum ToPlayerMessages {
     Pause,
     Seek(i64),
 }
-#[derive(Debug,Clone)]
-pub struct PlayOptions{
-    pub video_id:String,
-    pub url:String,
-    pub length:Option<usize>,
-    pub file_path:Option<String>,
+#[derive(Debug, Clone)]
+pub struct PlayOptions {
+    pub video_id: String,
+    pub url: String,
+    pub length: Option<usize>,
+    pub file_path: Option<String>,
 }
 
 #[derive(Union, PartialEq, Clone)]
@@ -66,17 +66,41 @@ impl QueryRoot {
         Ok(Search { extractor })
     }
 
-    async fn play<'ctx>(&self, ctx: &Context<'_>, video_id: String,url:String, file_path:Option<String>) -> Result<bool, Error> {
+    async fn play<'ctx>(
+        &self,
+        ctx: &Context<'_>,
+        video_id: String,
+        url: String,
+        file_path: Option<String>,
+    ) -> Result<bool, Error> {
         log::info!("Get storage");
         let data = ctx.data::<Storage>()?;
-        let response = surf::get(&url).send().await.unwrap();
-        let length = response.len();
+        log::info!("Get length");
+        let mut length = {
+            if let Ok(url) = surf::Url::parse(&url) {
+                let response = surf::get(&url).send().await;
+                response.ok().and_then(|r| r.len())
+            } else {
+                None
+            }
+        };
+
+        if length.is_none() {
+            if let Some(file_path) = &file_path {
+                if let Ok(file) = async_std::fs::File::open(&file_path).await {
+                    if let Ok(metadata) = file.metadata().await{
+                        length = Some(metadata.len() as usize);
+                    }
+                }
+            }
+        }
+
         log::info!("Try to lock to_player_msg");
 
         let mut to_player_msg = data.to_player_message.lock().await;
         log::info!("Locked player messages");
         to_player_msg
-            .send(ToPlayerMessages::Play(PlayOptions{
+            .send(ToPlayerMessages::Play(PlayOptions {
                 video_id,
                 url,
                 length,

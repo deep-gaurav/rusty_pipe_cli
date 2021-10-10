@@ -53,32 +53,35 @@ impl DownloaderS {
             for task in tasks.iter() {
                 match &task {
                     DownloaderInput::DownloadTask(task) => {
-                        
-                let mut dtask = {
-                    if let Some(task) = self.download_tasks.iter_mut().find(|p| p.video_id == task.video_id) {
-                        task.clone()
-                    } else {
-                        log::debug!("trying to create new download thread");
-                        let dtask = DownloadTask::start_new_task(
-                            task.url.to_string(),
-                            task.video_id.clone(),
-                            task.file_path.clone(),
-                        )
-                        .await
-                        .expect("Cant create download task");
-                        self.download_tasks.push(dtask);
-                        log::debug!("trying to get the just pushed thread");
-                        self.download_tasks
-                            .last_mut()
-                            .expect("Just pushed!")
-                            .clone()
+                        let mut dtask = {
+                            if let Some(task) = self
+                                .download_tasks
+                                .iter_mut()
+                                .find(|p| p.video_id == task.video_id)
+                            {
+                                task.clone()
+                            } else {
+                                log::debug!("trying to create new download thread");
+                                let dtask = DownloadTask::start_new_task(
+                                    task.url.to_string(),
+                                    task.video_id.clone(),
+                                    task.file_path.clone(),
+                                )
+                                .await
+                                .expect("Cant create download task");
+                                self.download_tasks.push(dtask);
+                                log::debug!("trying to get the just pushed thread");
+                                self.download_tasks
+                                    .last_mut()
+                                    .expect("Just pushed!")
+                                    .clone()
+                            }
+                        };
+                        dt.push((dtask, task.clone()));
                     }
-                };
-                dt.push((dtask, task.clone()));
-                    },
                     DownloaderInput::RemoveDownload(id) => {
-                        self.download_tasks.retain(|task|&task.video_id!=id);
-                    },
+                        self.download_tasks.retain(|task| &task.video_id != id);
+                    }
                 }
             }
             for (mut dtask, task) in dt {
@@ -100,7 +103,11 @@ impl DownloaderS {
                             log::debug!("trying to remove task");
                             let pos = tasks
                                 .iter()
-                                .position(|t| t.as_download_task().and_then(|t|Some(t==&task)).unwrap_or(false) )
+                                .position(|t| {
+                                    t.as_download_task()
+                                        .and_then(|t| Some(t == &task))
+                                        .unwrap_or(false)
+                                })
                                 .expect("Task not found to remove");
                             tasks.remove(pos);
                             log::debug!("trying to get download task to replace");
@@ -159,8 +166,8 @@ pub enum DownloaderInput {
 }
 
 impl DownloaderInput {
-    pub fn id(&self)->String{
-        match self{
+    pub fn id(&self) -> String {
+        match self {
             DownloaderInput::DownloadTask(task) => task.video_id.to_string(),
             DownloaderInput::RemoveDownload(id) => id.to_string(),
         }
@@ -175,7 +182,7 @@ impl DownloaderInput {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq,Debug)]
 pub struct IncomingTask {
     pub url: String,
     pub pos: usize,
@@ -275,13 +282,23 @@ impl DownloadTask {
         file_name: Option<String>,
     ) -> Result<Self, anyhow::Error> {
         let client = surf::client();
-        let response = client
-            .get(&url)
-            .await
-            .map_err(|e| anyhow::anyhow!("{:#?}", e))?;
-        let length = response
-            .len()
-            .ok_or(anyhow::anyhow!("Content length not known"))?;
+        let length = {
+            if let Ok(url) = surf::Url::parse(&url){
+                let response = client
+                .get(&url)
+                .await
+                .map_err(|e| anyhow::anyhow!("{:#?}", e));
+            response
+                .and_then(|response| {
+                    response
+                        .len()
+                        .ok_or(anyhow::anyhow!("Content length not known"))
+                })
+                .unwrap_or(0)
+            }else{
+                0
+            }
+        };
         log::info!("Content length found {}", length);
 
         let mut buff = vec![None; length];
@@ -387,6 +404,7 @@ impl DownloadTask {
         task: IncomingTask,
     ) -> Result<(Vec<u8>, IncomingTask, Self), anyhow::Error> {
         let pos = task.pos;
+        log::debug!("Requested data {:#?}",task);
         if self.buff.len() > pos && self.buff[pos].is_some() {
             let mut return_vec = vec![];
             for i in self.buff[pos..].iter() {
@@ -399,7 +417,7 @@ impl DownloadTask {
                     break;
                 }
             }
-            // log::info!("returning cache len {}", return_vec.len());
+            log::info!("returning cache len {}", return_vec.len());
             return Ok((return_vec, task, self));
         }
 
