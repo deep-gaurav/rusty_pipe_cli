@@ -373,7 +373,7 @@ impl PlayingData {
                 packet
             }
             Err(err) => {
-                log::warn!("Cant get packet {:#?}",err);
+                log::warn!("Cant get packet {:#?}", err);
                 return Err(err);
             }
         };

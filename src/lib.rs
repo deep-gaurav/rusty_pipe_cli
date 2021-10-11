@@ -3,7 +3,6 @@ use std::io::{self, Read, Seek, SeekFrom};
 use downloader::{DownloaderInput, IncomingTask, Reply};
 use symphonia::core::io::MediaSource;
 
-
 pub mod cli_ui;
 pub mod decode_m4a;
 pub mod downloader;
@@ -13,36 +12,27 @@ pub mod r_player;
 mod server;
 pub mod yt_downloader;
 
-
-pub fn run_server(port:u16){
-    
+pub fn run_server(port: u16) {
     async_std::task::block_on(async {
         let (tx1, rx1) = futures::channel::mpsc::channel(2);
         let (tx2, rx2) = futures::channel::mpsc::channel(2);
 
-        let server_fut = server::run_server(
-            rx1,
-            tx2,
-            port,
-        );
+        let server_fut = server::run_server(rx1, tx2, port);
         // let cli_fut = crate::cli_ui::run_tui_pipe(rx1, tx2);
         let player_fut = crate::r_player::run_audio_player(rx2, tx1);
         futures::join!(server_fut, player_fut);
     });
-    
-    
 }
 
-pub fn get_unused_port()->Option<u16>{
+pub fn get_unused_port() -> Option<u16> {
     let port = portpicker::pick_unused_port();
     port
 }
 
-
 pub struct StreamResponse {
     url: String,
-    video_id:String,
-    file_name:Option<String>,
+    video_id: String,
+    file_name: Option<String>,
     current_position: usize,
     down_sender: crossbeam_channel::Sender<DownloaderInput>,
     down_rcv: crossbeam_channel::Receiver<Reply>,
@@ -55,8 +45,8 @@ impl Read for StreamResponse {
             url: self.url.to_string(),
             pos: self.current_position,
             buff: buf.len(),
-            video_id:self.video_id.clone(),
-            file_path:self.file_name.clone(),
+            video_id: self.video_id.clone(),
+            file_path: self.file_name.clone(),
         };
         log::debug!("trying to send downnload task to downloader");
         self.down_sender
@@ -82,10 +72,13 @@ impl Read for StreamResponse {
     }
 }
 
-impl Drop for StreamResponse{
+impl Drop for StreamResponse {
     fn drop(&mut self) {
-        if let Err(err) = self.down_sender.send(DownloaderInput::RemoveDownload(self.video_id.clone())){
-            log::error!("Cant remove download {:#?}",err);
+        if let Err(err) = self
+            .down_sender
+            .send(DownloaderInput::RemoveDownload(self.video_id.clone()))
+        {
+            log::error!("Cant remove download {:#?}", err);
         }
     }
 }

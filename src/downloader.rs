@@ -80,7 +80,19 @@ impl DownloaderS {
                         dt.push((dtask, task.clone()));
                     }
                     DownloaderInput::RemoveDownload(id) => {
+                        log::info!("Removing download for video_id {}", id);
                         self.download_tasks.retain(|task| &task.video_id != id);
+                        {
+                            self.tasks_to_respond
+                                .lock()
+                                .expect("Cant lock tasks to get tasks")
+                                .retain(|task| {
+                                    !task
+                                        .as_remove_download()
+                                        .and_then(|taskid| Some(taskid == id))
+                                        .unwrap_or(false)
+                                })
+                        }
                     }
                 }
             }
@@ -180,9 +192,17 @@ impl DownloaderInput {
             None
         }
     }
+
+    pub fn as_remove_download(&self) -> Option<&String> {
+        if let Self::RemoveDownload(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
-#[derive(Clone, PartialEq,Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct IncomingTask {
     pub url: String,
     pub pos: usize,
@@ -283,19 +303,19 @@ impl DownloadTask {
     ) -> Result<Self, anyhow::Error> {
         let client = surf::client();
         let length = {
-            if let Ok(url) = surf::Url::parse(&url){
+            if let Ok(url) = surf::Url::parse(&url) {
                 let response = client
-                .get(&url)
-                .await
-                .map_err(|e| anyhow::anyhow!("{:#?}", e));
-            response
-                .and_then(|response| {
-                    response
-                        .len()
-                        .ok_or(anyhow::anyhow!("Content length not known"))
-                })
-                .unwrap_or(0)
-            }else{
+                    .get(&url)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{:#?}", e));
+                response
+                    .and_then(|response| {
+                        response
+                            .len()
+                            .ok_or(anyhow::anyhow!("Content length not known"))
+                    })
+                    .unwrap_or(0)
+            } else {
                 0
             }
         };
@@ -404,7 +424,7 @@ impl DownloadTask {
         task: IncomingTask,
     ) -> Result<(Vec<u8>, IncomingTask, Self), anyhow::Error> {
         let pos = task.pos;
-        log::debug!("Requested data {:#?}",task);
+        log::debug!("Requested data {:#?}", task);
         if self.buff.len() > pos && self.buff[pos].is_some() {
             let mut return_vec = vec![];
             for i in self.buff[pos..].iter() {

@@ -88,7 +88,7 @@ impl QueryRoot {
         if length.is_none() {
             if let Some(file_path) = &file_path {
                 if let Ok(file) = async_std::fs::File::open(&file_path).await {
-                    if let Ok(metadata) = file.metadata().await{
+                    if let Ok(metadata) = file.metadata().await {
                         length = Some(metadata.len() as usize);
                     }
                 }

@@ -10,7 +10,10 @@ use rusty_pipe::youtube_extractor::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use crate::{server::schema::{PlayOptions, PlayerMessage, PlayerStatus, ToPlayerMessages}, yt_downloader::YTDownloader};
+use crate::{
+    server::schema::{PlayOptions, PlayerMessage, PlayerStatus, ToPlayerMessages},
+    yt_downloader::YTDownloader,
+};
 
 use async_std::prelude::*;
 use tui::{
@@ -280,30 +283,36 @@ pub async fn run_tui_pipe(
                                                 {
                                                     let mut cache_dir = dirs::audio_dir();
                                                     let mut path = None;
-                                                    if let Some(dir)=&mut  cache_dir{
+                                                    if let Some(dir) = &mut cache_dir {
                                                         dir.push("RustyPipe");
 
-                                                        let res = async_std::fs::create_dir_all(&dir).await;
-                                                        
-                                                        dir.push(format!("{}",video_id))
-                                                        ;
-                                                        dir.set_extension("m4a");
-                                                        match res{
-                                                            Ok(_) => {
+                                                        let res =
+                                                            async_std::fs::create_dir_all(&dir)
+                                                                .await;
 
-                                                        path = dir.to_str().to_owned().map(|f|f.to_string());
-                                                            },
+                                                        dir.push(format!("{}", video_id));
+                                                        dir.set_extension("m4a");
+                                                        match res {
+                                                            Ok(_) => {
+                                                                path = dir
+                                                                    .to_str()
+                                                                    .to_owned()
+                                                                    .map(|f| f.to_string());
+                                                            }
                                                             Err(err) => {
-                                                                log::error!("Cant create cache dir {:#?}",err)
-                                                            },
+                                                                log::error!(
+                                                                    "Cant create cache dir {:#?}",
+                                                                    err
+                                                                )
+                                                            }
                                                         }
                                                     }
                                                     msg_sender
-                                                        .send(ToPlayerMessages::Play(PlayOptions{
+                                                        .send(ToPlayerMessages::Play(PlayOptions {
                                                             url,
-                                                            length:size,
+                                                            length: size,
                                                             video_id,
-                                                            file_path:path,
+                                                            file_path: path,
                                                         }))
                                                         .await;
                                                 }
