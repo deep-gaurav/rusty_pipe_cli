@@ -36,7 +36,7 @@ mod cpal {
     use symphonia::core::units::Duration;
 
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-    use cpal::{self, SampleFormat};
+    use cpal::{self, SampleFormat, SupportedStreamConfig};
     use rb::*;
 
     use log::{debug, error};
@@ -136,90 +136,100 @@ mod cpal {
                     }
                     ig
                 };
-                for (device_index, device) in devices.enumerate() {
-                    log::info!("Get supported configs");
-                    match device.supported_output_configs() {
-                        Ok(configs) => {
-                            log::debug!("Received configs");
-                            for config in configs {
-                                log::debug!(
-                                    "Config rates {:#?} - {:#?}, format {:#?}",
-                                    config.min_sample_rate(),
-                                    config.max_sample_rate(),
-                                    config.sample_format()
-                                );
-                                if ignore_nonf && config.sample_format() != SampleFormat::F32 {
-                                    continue;
+                if let Some(default_output_device) = host.default_output_device(){
+                    for (device_index, device) in vec![default_output_device].into_iter().enumerate() {
+                        log::info!("Get supported configs");
+                        match device.supported_output_configs() {
+                            Ok(configs) => {
+                                log::debug!("Received configs");
+                                for config in configs {
+                                    log::debug!(
+                                        "Config rates {:#?} - {:#?}, format {:#?}",
+                                        config.min_sample_rate(),
+                                        config.max_sample_rate(),
+                                        config.sample_format()
+                                    );
+                                    if ignore_nonf && config.sample_format() != SampleFormat::F32 {
+                                        continue;
+                                    }
+                                    if spec.rate <= config.max_sample_rate().0
+                                        && spec.rate >= config.min_sample_rate().0
+                                    {
+                                        log::debug!("Setting config");
+                                        c = Some(config.with_sample_rate(cpal::SampleRate(spec.rate)));
+    
+                                        break;
+                                    }
+                                    if config.min_sample_rate().0 < min_sample_rate {
+                                        min_sample_rate = config.min_sample_rate().0;
+                                    }
+                                    if config.max_sample_rate().0 > max_sample_rate {
+                                        max_sample_rate = config.max_sample_rate().0;
+                                    }
+    
+                                    log::info!(
+                                        "Current Confir min {:#?} max {:#?} format {:#?}",
+                                        config.min_sample_rate(),
+                                        config.max_sample_rate(),
+                                        config.sample_format()
+                                    );
+                                    let min_diff = config.min_sample_rate().0 as i64 - spec.rate as i64;
+                                    let max_diff = config.max_sample_rate().0 as i64 - spec.rate as i64;
+                                    let new_close_val = std::cmp::min(min_diff.abs(), max_diff.abs());
+                                    if new_close_val < close_val {
+                                        log::info!("Old close val {}", close_val);
+                                        log::info!("New close val {}", new_close_val);
+                                        close_val = new_close_val;
+                                        let rate = {
+                                            if close_val == max_diff.abs() {
+                                                config.max_sample_rate()
+                                            } else {
+                                                config.min_sample_rate()
+                                            }
+                                        };
+                                        close_d = Some((config.with_sample_rate(rate), device_index));
+                                    }
                                 }
-                                if spec.rate <= config.max_sample_rate().0
-                                    && spec.rate >= config.min_sample_rate().0
-                                {
-                                    log::debug!("Setting config");
-                                    c = Some(config.with_sample_rate(cpal::SampleRate(spec.rate)));
-
+                                if c.is_some() {
+                                    d = Some(device);
                                     break;
                                 }
-                                if config.min_sample_rate().0 < min_sample_rate {
-                                    min_sample_rate = config.min_sample_rate().0;
-                                }
-                                if config.max_sample_rate().0 > max_sample_rate {
-                                    max_sample_rate = config.max_sample_rate().0;
-                                }
-
-                                log::info!(
-                                    "Current Confir min {:#?} max {:#?} format {:#?}",
-                                    config.min_sample_rate(),
-                                    config.max_sample_rate(),
-                                    config.sample_format()
-                                );
-                                let min_diff = config.min_sample_rate().0 as i64 - spec.rate as i64;
-                                let max_diff = config.max_sample_rate().0 as i64 - spec.rate as i64;
-                                let new_close_val = std::cmp::min(min_diff.abs(), max_diff.abs());
-                                if new_close_val < close_val {
-                                    log::info!("Old close val {}", close_val);
-                                    log::info!("New close val {}", new_close_val);
-                                    close_val = new_close_val;
-                                    let rate = {
-                                        if close_val == max_diff.abs() {
-                                            config.max_sample_rate()
-                                        } else {
-                                            config.min_sample_rate()
-                                        }
-                                    };
-                                    close_d = Some((config.with_sample_rate(rate), device_index));
-                                }
                             }
-                            if c.is_some() {
-                                d = Some(device);
-                                break;
+                            Err(err) => {
+                                error!("failed to get default audio output device config: {}", err);
+                                debug!(
+                                    "Supported configs {:#?}",
+                                    device.supported_output_configs().map(|c| c.count())
+                                )
                             }
-                        }
-                        Err(err) => {
-                            error!("failed to get default audio output device config: {}", err);
-                            debug!(
-                                "Supported configs {:#?}",
-                                device.supported_output_configs().map(|c| c.count())
-                            )
-                        }
-                    };
+                        };
+                    }
+                    
                 }
                 log::debug!("set default device");
                 if c.is_none() {
                     log::debug!("No suitable config set");
                     if let Some((config, device)) = close_d {
+                        log::info!("Setting close device");
                         if let Ok(mut devices) = host.output_devices() {
                             if let Some(device) = devices.nth(device) {
+                                let config:SupportedStreamConfig = config;
+                                need_h_sam = config.sample_rate().0 != spec.rate;
                                 c = Some(config);
                                 d = Some(device);
-                                need_h_sam = true;
+                                
                             }
                         }
                     } else if let Some(device) = host.default_output_device() {
+                        log::info!("Using default device");
+                        
                         if let Ok(config) = device.default_output_config() {
                             log::debug!("Use default config");
+                            need_h_sam = config.sample_rate().0 != spec.rate;
                             c = Some(config);
                             d = Some(device);
-                            need_h_sam = true;
+                        }else{
+                            log::warn!("No defaullt config for default device");
                         }
                     }
                 }

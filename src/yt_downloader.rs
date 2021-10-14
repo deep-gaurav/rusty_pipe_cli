@@ -21,6 +21,8 @@ impl Downloader for YTDownloader {
                 cause: er.to_string(),
             })?;
         // println!("got response ");
+        log::info!("Response Headers {:#?}",resp.header_values());
+
         let body = resp
             .body_string()
             .await
@@ -51,6 +53,7 @@ impl Downloader for YTDownloader {
         // res.header(key, value)
         // let res = res.headers(headers);
         let mut res = res.send().await.map_err(|er| er.to_string())?;
+        log::info!("Response Headers {:#?}",res.header_values());
         let body = res.body_string().await.map_err(|er| er.to_string())?;
         log::info!("Download Complete");
 
@@ -58,10 +61,12 @@ impl Downloader for YTDownloader {
     }
 
     fn eval_js(script: &str) -> Result<String, String> {
-        log::info!("Eval js");
-        let mut context = boa::Context::default();
+        log::info!("Eval js {}",script);
+        let mut context = quick_js::Context::new().expect("Cant create quick-js context");
         log::debug!("run script {}", script);
         let res = context.eval(script).map_err(|er| format!("{:#?}", er));
+        
+        log::info!("Eval complete");
         let res = match res {
             Ok(res) => res,
             Err(err) => {
@@ -69,7 +74,7 @@ impl Downloader for YTDownloader {
                 return Err(err);
             }
         };
-        let result = res.as_string().ok_or("Output not string".to_string());
+        let result = res.into_string().ok_or("Output not string".to_string());
         let result = match result {
             Ok(result) => result,
             Err(err) => {
