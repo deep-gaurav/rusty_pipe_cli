@@ -1,5 +1,7 @@
 use std::{convert::Infallible, sync::Arc};
 
+use crate::yt_downloader::YTDownloader;
+
 use self::schema::{PlayerMessage, QueryRoot, Storage, SubscriptionRoot, ToPlayerMessages};
 use async_graphql::{
     http::{playground_source, GraphQLPlaygroundConfig},
@@ -21,6 +23,7 @@ pub mod stream;
 pub async fn run_server(
     mut msg_receiver: Receiver<PlayerMessage>,
     msg_sender: Sender<ToPlayerMessages>,
+    downloader:YTDownloader,
     port: u16,
 ) {
     let storage = Storage {
@@ -41,7 +44,9 @@ pub async fn run_server(
         }
     };
 
-    let schema = Schema::build(QueryRoot {}, EmptyMutation, SubscriptionRoot {})
+    let schema = Schema::build(QueryRoot {
+        downloader
+    }, EmptyMutation, SubscriptionRoot {})
         .data(storage)
         .finish();
 

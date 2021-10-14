@@ -7,9 +7,9 @@ use futures::{
 };
 
 use async_graphql::*;
-use rusty_pipe::youtube_extractor::{
+use rusty_pipe::{downloader_trait::Downloader, youtube_extractor::{
     search_extractor::YTSearchExtractor, stream_extractor::YTStreamExtractor,
-};
+}};
 
 use crate::yt_downloader::YTDownloader;
 
@@ -48,13 +48,15 @@ pub struct Storage {
     pub from_player_message: Arc<Mutex<Option<Sender<PlayerMessage>>>>,
 }
 
-pub struct QueryRoot {}
+pub struct QueryRoot {
+    pub downloader:YTDownloader,
+}
 
 #[Object]
 impl QueryRoot {
     async fn video(&self, video_id: String) -> Result<Video, Error> {
         log::info!("Readying stream extractor");
-        let ytextractor = YTStreamExtractor::new(&video_id, YTDownloader {}).await?;
+        let ytextractor = YTStreamExtractor::new(&video_id, self.downloader.clone()).await?;
         log::info!("Stream extractor read length, file_path: todo!() y");
         Ok(Video {
             extractor: ytextractor,
@@ -62,8 +64,8 @@ impl QueryRoot {
     }
 
     async fn search(&self, query: String, page_url: Option<String>) -> Result<Search, Error> {
-        let extractor = YTSearchExtractor::new::<YTDownloader>(&query, page_url).await?;
-        Ok(Search { extractor })
+        let extractor = YTSearchExtractor::new(&query, page_url,self.downloader.clone()).await?;
+        Ok(Search { extractor,downloader:self.downloader.clone() })
     }
 
     async fn play<'ctx>(

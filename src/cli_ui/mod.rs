@@ -349,7 +349,9 @@ pub async fn run_tui_pipe(
                             InputMode::Editing => match key.code {
                                 KeyCode::Enter => {
                                     let query = app.input.drain(..).collect::<String>();
-                                    let extractor = rusty_pipe::youtube_extractor::search_extractor::YTSearchExtractor::new::<YTDownloader>(&query, None).await.expect("Cant create search extractor");
+                                    let extractor = rusty_pipe::youtube_extractor::search_extractor::YTSearchExtractor::new(&query, None,YTDownloader{
+                                        
+                                    }).await.expect("Cant create search extractor");
                                     let items = extractor.search_results();
                                     if let Ok(items) = items {
                                         app.results = items
@@ -424,7 +426,7 @@ pub async fn play_video(id: &str) -> Result<(String, Option<usize>), anyhow::Err
         .await
         .map_err(|e| anyhow::anyhow!("{:#?}", e))?;
     let audio_streams = stream_extractor
-        .get_audio_streams()
+        .get_audio_streams().await
         .map_err(|er| anyhow::anyhow!("Cant get audio streams"))?;
     let stream_info = audio_streams
         .iter()

@@ -19,7 +19,7 @@ pub struct Video {
 #[Object]
 impl Video {
     async fn video_streams(&self) -> Result<Vec<StreamItem>, Error> {
-        let streams = self.extractor.get_video_stream()?;
+        let streams = self.extractor.get_video_stream().await?;
         let mut v = vec![];
         for stream in streams {
             let stream_str = serde_json::to_string(&stream)?;
@@ -28,7 +28,7 @@ impl Video {
         Ok(v)
     }
     async fn video_only_streams(&self) -> Result<Vec<StreamItem>, Error> {
-        let streams = self.extractor.get_video_only_stream()?;
+        let streams = self.extractor.get_video_only_stream().await?;
         let mut v = vec![];
         for stream in streams {
             let stream_str = serde_json::to_string(&stream)?;
@@ -37,7 +37,7 @@ impl Video {
         Ok(v)
     }
     async fn audio_only_streams(&self) -> Result<Vec<StreamItem>, Error> {
-        let streams = self.extractor.get_audio_streams()?;
+        let streams = self.extractor.get_audio_streams().await?;
         let mut v = vec![];
         for stream in streams {
             let stream_str = serde_json::to_string(&stream)?;

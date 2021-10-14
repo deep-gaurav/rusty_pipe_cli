@@ -7,13 +7,14 @@ use rusty_pipe::{
 use crate::yt_downloader::YTDownloader;
 
 pub struct Search {
-    pub extractor: YTSearchExtractor,
+    pub downloader: YTDownloader,
+    pub extractor: YTSearchExtractor<YTDownloader>,
 }
 
 #[Object]
 impl Search {
     async fn suggestion(&self) -> Result<Vec<String>, Error> {
-        Ok(YTSearchExtractor::get_search_suggestion::<YTDownloader>("")
+        Ok(YTSearchExtractor::get_search_suggestion("",&self.downloader)
             .await
             .map_err(|e| format!("{:#?}", e))?)
     }

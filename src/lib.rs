@@ -3,6 +3,8 @@ use std::io::{self, Read, Seek, SeekFrom};
 use downloader::{DownloaderInput, IncomingTask, Reply};
 use symphonia::core::io::MediaSource;
 
+use crate::yt_downloader::YTDownloader;
+
 pub mod cli_ui;
 pub mod decode_m4a;
 pub mod downloader;
@@ -17,7 +19,7 @@ pub fn run_server(port: u16) {
         let (tx1, rx1) = futures::channel::mpsc::channel(2);
         let (tx2, rx2) = futures::channel::mpsc::channel(2);
 
-        let server_fut = server::run_server(rx1, tx2, port);
+        let server_fut = server::run_server(rx1, tx2, YTDownloader {  },port);
         // let cli_fut = crate::cli_ui::run_tui_pipe(rx1, tx2);
         let player_fut = crate::r_player::run_audio_player(rx2, tx1);
         futures::join!(server_fut, player_fut);

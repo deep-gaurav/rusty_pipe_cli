@@ -7,11 +7,12 @@ lazy_static::lazy_static! {
     static ref SURF_CLIENT:surf::Client = surf::Client::new();
 }
 
+#[derive(Clone)]
 pub struct YTDownloader {}
 
 #[async_trait]
 impl Downloader for YTDownloader {
-    async fn download(url: &str) -> Result<String, ParsingError> {
+    async fn download(&self,url: &str) -> Result<String, ParsingError> {
         // println!("query url : {}", url);
         log::info!("Download url");
         let mut resp = SURF_CLIENT
@@ -35,6 +36,7 @@ impl Downloader for YTDownloader {
     }
 
     async fn download_with_header(
+        &self,
         url: &str,
         header: HashMap<String, String>,
     ) -> Result<String, ParsingError> {
@@ -60,11 +62,12 @@ impl Downloader for YTDownloader {
         Ok(String::from(body))
     }
 
-    fn eval_js(script: &str) -> Result<String, String> {
+    async fn eval_js(        &self,
+        script: &str) -> Result<String, String> {
         log::info!("Eval js {}",script);
-        let mut context = quick_js::Context::new().expect("Cant create quick-js context");
+        let ducc = ducc::Ducc::new();
         log::debug!("run script {}", script);
-        let res = context.eval(script).map_err(|er| format!("{:#?}", er));
+        let res = ducc.exec::<String>(script,None,ducc::ExecSettings { cancel_fn: None }).map_err(|er| format!("{:#?}", er));
         
         log::info!("Eval complete");
         let res = match res {
@@ -74,14 +77,14 @@ impl Downloader for YTDownloader {
                 return Err(err);
             }
         };
-        let result = res.into_string().ok_or("Output not string".to_string());
-        let result = match result {
-            Ok(result) => result,
-            Err(err) => {
-                log::error!("Error {:#?}", err);
-                return Err(err);
-            }
-        };
+        let result = res;
+        // let result = match result {
+        //     Ok(result) => result,
+        //     Err(err) => {
+        //         log::error!("Error {:#?}", err);
+        //         return Err(err);
+        //     }
+        // };
         let result = result.to_string();
         // print!("JS result: {}", result);
         log::info!("Eval coml js complete");
