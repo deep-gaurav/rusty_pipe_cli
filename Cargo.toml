@@ -51,7 +51,7 @@ ducc = "0.1"
 # aaudio = "0.1"
 
 [profile.release]
-# lto = true
+lto = true
 
 [target.x86_64-pc-windows-gnu]
 
